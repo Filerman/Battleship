@@ -13,13 +13,17 @@ public class MoveCommand implements Command {
 
     @Override
     public void execute() {
+        // Zapamiętujemy co było w polu
         previousState = targetBoard.getGrid()[position.getRow()][position.getCol()];
-        targetBoard.shoot(position); // Wykonaj strzał
+        // Wykonujemy strzał
+        targetBoard.shoot(position);
     }
 
     @Override
     public void undo() {
+        // Przywracamy poprzedni znak
         targetBoard.getGrid()[position.getRow()][position.getCol()] = previousState;
+        // Usuwamy ten strzał z listy
         targetBoard.getShotsFired().remove(position);
     }
 }

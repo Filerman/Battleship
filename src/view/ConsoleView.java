@@ -1,5 +1,6 @@
 package view;
 
+import model.AIPlayer;
 import model.Board;
 import model.AnsiColors;
 import model.Player;
@@ -16,9 +17,9 @@ public class ConsoleView {
      * Parametr gameMode (np. "PVP", "PVE", "AI vs AI") może być wykorzystany do dodatkowej logiki.
      */
     public void printBoards(Player player1, Player player2, String gameMode) {
-        // W trybie PVE (Gracz vs Komputer) plansza komputera ma statki ukryte
-        boolean showShipsPlayer1 = !player1.isAI();
-        boolean showShipsPlayer2 = !player2.isAI();
+        // Determine if each player is an AI using instanceof
+        boolean showShipsPlayer1 = !(player1 instanceof AIPlayer);
+        boolean showShipsPlayer2 = !(player2 instanceof AIPlayer);
         if (gameMode.equals("AI vs AI")) {
             // W trybie AI vs AI wyświetlamy statki obu graczy
             showShipsPlayer1 = true;
@@ -33,7 +34,7 @@ public class ConsoleView {
     /**
      * Wyświetla pojedynczą planszę z użyciem kolorów.
      */
-    // mozna dodac kolorowanie planszy
+    // można dodać kolorowanie planszy
     public void printBoard(Board board, boolean showShips) {
         int size = board.getSize();
         char[][] grid = board.getGrid();
@@ -62,6 +63,4 @@ public class ConsoleView {
             System.out.println(); // Nowa linia po każdym wierszu
         }
     }
-
-
 }

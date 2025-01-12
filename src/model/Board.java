@@ -9,7 +9,7 @@ import java.util.List;
 public class Board {
     private final int SIZE;               // Rozmiar planszy (np. 10)
     private char[][] grid;                // Wizualne odwzorowanie planszy
-    private List<Ship> ships;
+    private List<IShip> ships;            // Lista statków jako IShip
     private List<Position> shotsFired;    // Historia oddanych strzałów
 
     // Lista kamieni (przeszkód) na planszy
@@ -51,11 +51,15 @@ public class Board {
         return SIZE;
     }
 
+    public List<IShip> getShips() {
+        return ships;
+    }
+
     /**
      * Umieszcza statek na planszy. Zwraca false, jeśli którakolwiek pozycja, w której ma być umieszczony statek,
      * znajduje się poza planszą lub już zawiera statek lub kamień (oznaczony jako 'K').
      */
-    public boolean placeShip(Ship ship) {
+    public boolean placeShip(IShip ship) {
         for (Position p : ship.getPositions()) {
             int r = p.getRow();
             int c = p.getCol();
@@ -118,7 +122,7 @@ public class Board {
         }
         if (grid[r][c] == shipChar) {
             grid[r][c] = hitChar;
-            for (Ship s : ships) {
+            for (IShip s : ships) { // Teraz iterujemy po IShip
                 if (s.isHit(position)) {
                     s.checkIfSunk(shotsFired);
                     if (s.isSunk()) {
@@ -141,7 +145,7 @@ public class Board {
      * Sprawdza, czy wszystkie statki na planszy są zatopione.
      */
     public boolean allShipsSunk() {
-        for (Ship s : ships) {
+        for (IShip s : ships) { // Zmieniono na IShip
             if (!s.isSunk()) {
                 return false;
             }
@@ -151,10 +155,6 @@ public class Board {
 
     public char[][] getGrid() {
         return grid;
-    }
-
-    public List<Ship> getShips() {
-        return ships;
     }
 
     public List<Position> getShotsFired() {

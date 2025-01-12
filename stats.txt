@@ -1,0 +1,8 @@
+5
+WIN:FajnyGracz:1
+WIN:AI1:3
+WIN:AI2:1
+GAMEHIST:[2025-01-12T21:33:15.032312200] Tryb: PVP, Zwycięzca: FajnyGracz, Liczba tur: 74
+GAMEHIST:[2025-01-12T21:41:27.843643100] Tryb: AI vs AI, Zwycięzca: AI1, Liczba tur: 147
+GAMEHIST:[2025-01-12T21:42:19.531142100] Tryb: AI vs AI, Zwycięzca: AI2, Liczba tur: 251
+GAMEHIST:[2025-01-12T21:45:06.058523800] Tryb: AI vs AI, Zwycięzca: AI1, Liczba tur: 183

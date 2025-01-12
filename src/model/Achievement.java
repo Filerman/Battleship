@@ -1,15 +1,11 @@
 package model;
 
-/**
- * Przykładowa klasa do zarządzania osiągnięciami.
- * Możesz zdefiniować własne progi, nazwy osiągnięć, itp.
- */
 public class Achievement {
     private String description;
     private boolean unlocked;
 
-    public Achievement(String description) {
-        this.description = description;
+    public Achievement(String desc) {
+        this.description = desc;
         this.unlocked = false;
     }
 

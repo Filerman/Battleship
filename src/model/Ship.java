@@ -3,10 +3,7 @@ package model;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Klasa reprezentująca statek.
- */
-public class Ship {
+public class Ship implements IShip {
     private List<Position> positions;
     private boolean sunk;
 
@@ -15,17 +12,17 @@ public class Ship {
         this.sunk = false;
     }
 
+    @Override
     public void addPosition(Position position) {
         positions.add(position);
     }
 
+    @Override
     public List<Position> getPositions() {
         return positions;
     }
 
-    /**
-     * Sprawdza, czy dany strzał trafił w którąś z komórek statku.
-     */
+    @Override
     public boolean isHit(Position shot) {
         for (Position position : positions) {
             if (position.equals(shot)) {
@@ -35,9 +32,7 @@ public class Ship {
         return false;
     }
 
-    /**
-     * Oznacza statek jako zatopiony (jeśli wszystkie jego pola zostały trafione).
-     */
+    @Override
     public void checkIfSunk(List<Position> hits) {
         for (Position pos : positions) {
             if (!hits.contains(pos)) {
@@ -48,6 +43,7 @@ public class Ship {
         this.sunk = true;
     }
 
+    @Override
     public boolean isSunk() {
         return sunk;
     }

@@ -1,17 +1,13 @@
 package model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
+import java.io.*;
+import java.time.LocalDateTime;
+import java.util.*;
 
-/**
- * Przykładowa klasa do zarządzania statystykami gry.
- * Możesz ją rozbudować o zapis/odczyt z pliku, bazę danych itp.
- */
 public class GameStatistics {
     private int totalGames;
-    private HashMap<String, Integer> winsPerPlayer; // klucz: nazwa gracza, wartość: liczba wygranych
-    private List<GameHistoryEntry> gameHistory;      // historia gier
+    private HashMap<String, Integer> winsPerPlayer;
+    private List<GameHistoryEntry> gameHistory;
 
     public GameStatistics() {
         totalGames = 0;
@@ -46,8 +42,71 @@ public class GameStatistics {
         StringBuilder sb = new StringBuilder();
         sb.append("Historia rozgrywek:\n");
         for (GameHistoryEntry entry : gameHistory) {
-            sb.append(entry.toString()).append("\n");
+            sb.append(entry).append("\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * Zapis statystyk do pliku (np. stats.txt)
+     */
+    public void saveToFile(String fileName) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
+            // Zapis totalGames
+            writer.write(String.valueOf(totalGames));
+            writer.newLine();
+            // Zapis wygranych
+            for (Map.Entry<String, Integer> e : winsPerPlayer.entrySet()) {
+                writer.write("WIN:" + e.getKey() + ":" + e.getValue());
+                writer.newLine();
+            }
+            // Zapis historii
+            for (GameHistoryEntry gh : gameHistory) {
+                writer.write("GAMEHIST:" + gh.toString());
+                writer.newLine();
+            }
+        }
+    }
+
+    /**
+     * Odczyt statystyk z pliku
+     */
+    public void loadFromFile(String fileName) throws IOException {
+        File f = new File(fileName);
+        if (!f.exists()) {
+            // Brak pliku
+            return;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            // 1. Pierwsza linia: totalGames
+            String line = br.readLine();
+            if (line != null) {
+                try {
+                    totalGames = Integer.parseInt(line.trim());
+                } catch (NumberFormatException e) {
+                    // w razie błędu zostaw 0
+                }
+            }
+            // 2. Kolejne linie
+            while ((line = br.readLine()) != null) {
+                if (line.startsWith("WIN:")) {
+                    // form. WIN:player:liczbaWygranych
+                    String[] parts = line.split(":");
+                    if (parts.length == 3) {
+                        String playerName = parts[1];
+                        int wins = Integer.parseInt(parts[2]);
+                        winsPerPlayer.put(playerName, wins);
+                    }
+                } else if (line.startsWith("GAMEHIST:")) {
+                    // Parsujemy historię
+                    String histText = line.substring("GAMEHIST:".length());
+                    // Można spróbować odczytać z toString():
+                    GameHistoryEntry ghe = GameHistoryEntry.fromString(histText);
+                    if (ghe != null) {
+                        gameHistory.add(ghe);
+                    }
+                }
+            }
+        }
     }
 }

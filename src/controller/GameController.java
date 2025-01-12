@@ -3,221 +3,515 @@ package controller;
 import model.*;
 import view.ConsoleView;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * Główny kontroler gry.
- */
 public class GameController {
     private BattleshipGame game;
     private ConsoleView view;
     private Scanner scanner;
 
-    // Licznik rund
+    // Licznik rund (ile łącznie wykonano ruchów)
     private int roundCount;
 
+    // Pancerze
+    private int armorTokensPlayer1 = 2;
+    private int armorTokensPlayer2 = 2;
+
+    // Domyślne rozmiary statków, jeśli gracz nie zmieni
+    private int[] defaultShipSizes = {4, 3};
+
     public GameController() {
-        // Jeżeli chcesz, aby GameController sam tworzył obiekty View itp.
         this.view = new ConsoleView();
         this.scanner = new Scanner(System.in);
         this.roundCount = 0;
     }
 
+    public GameStatistics getStatistics() {
+        if (game != null) {
+            return game.getStatistics();
+        }
+        return new GameStatistics();
+    }
+
     /**
-     * Metoda, w której przenosimy konfigurację gry i tworzenie obiektów z klasy Main.
-     * Na koniec wywołujemy startGame().
+     * Rozpoczyna procedurę konfiguracji gry i uruchamia rozgrywkę.
      */
     public void setupGame() {
+        // Próbujemy wczytać statystyki z pliku przed uruchomieniem nowej gry
+        // (wczytywanie do tymczasowego obiektu)
+        try {
+            GameStatistics tempStats = new GameStatistics();
+            tempStats.loadFromFile("stats.txt");
+        } catch (IOException e) {
+            view.displayMessage("Nie udało się wczytać statystyk (stats.txt), zaczynamy od 0.");
+        }
+
+        // Wybór trybu
         view.displayMessage("Wybierz tryb gry:");
         view.displayMessage("1. Gracz vs Gracz");
         view.displayMessage("2. Gracz vs Komputer");
         view.displayMessage("3. Komputer vs Komputer (symulacja)");
-
         int choice = readInt();
 
-        // Dwie plansze (dla Gracza1 i Gracza2 lub AI)
         Board boardForUser;
         Board boardForAI;
 
+        // 1. Ustalamy, czy chcemy standard czy interaktywny builder
+        boolean useInteractiveBoard = false;
         if (choice == 1 || choice == 2) {
-            view.displayMessage("Czy chcesz skonfigurować planszę interaktywnie za pomocą buildera? (tak/nie)");
+            view.displayMessage("Czy chcesz skonfigurować planszę interaktywnie? (tak/nie)");
             String interactiveConfig = scanner.nextLine().trim();
-
-            if (interactiveConfig.equalsIgnoreCase("tak")) {
-                boardForUser = configureBoardInteractively();
-            } else {
-                boardForUser = configureStandardBoard();
-            }
-            boardForAI = configureStandardBoard();
-        } else {
-            // Tryb Komputer vs Komputer (symulacja) – obie plansze standardowe
-            boardForUser = configureStandardBoard();
-            boardForAI = configureStandardBoard();
+            useInteractiveBoard = interactiveConfig.equalsIgnoreCase("tak");
         }
 
-        Player player1 = null;
-        Player player2 = null;
+        // Tworzymy dwie plansze
+        if (useInteractiveBoard) {
+            boardForUser = configureBoardInteractively();
+            // Druga (np. AI) – ta sama wielkość i znaki
+            boardForAI = new Board(
+                    boardForUser.getSize(),
+                    boardForUser.getWaterChar(),
+                    boardForUser.getShipChar(),
+                    boardForUser.getHitChar(),
+                    boardForUser.getMissChar()
+            );
+        } else {
+            // Standard
+            if (choice == 3) {
+                // Komputer vs Komputer
+                Board std = configureStandardBoard();
+                boardForUser = new Board(std.getSize(), std.getWaterChar(), std.getShipChar(), std.getHitChar(), std.getMissChar());
+                boardForAI = new Board(std.getSize(), std.getWaterChar(), std.getShipChar(), std.getHitChar(), std.getMissChar());
+            } else {
+                // PVP lub PVE – też standard
+                boardForUser = configureStandardBoard();
+                boardForAI = new Board(boardForUser.getSize(),
+                        boardForUser.getWaterChar(),
+                        boardForUser.getShipChar(),
+                        boardForUser.getHitChar(),
+                        boardForUser.getMissChar());
+            }
+        }
 
+        // 2. Ustalamy, ile i jakie statki – zapytajmy gracza
+        int[] shipSizes = askForShipSizes(); // nowa metoda
+
+        // 3. Tworzymy player1 i player2
+        Player player1, player2;
         switch (choice) {
-            case 1 -> { // Gracz vs Gracz
+            case 1 -> {
+                // PVP
                 view.displayMessage("Podaj nazwę Gracza 1:");
-                String player1Name = scanner.nextLine();
+                String p1Name = scanner.nextLine();
                 view.displayMessage("Podaj nazwę Gracza 2:");
-                String player2Name = scanner.nextLine();
+                String p2Name = scanner.nextLine();
 
-                player1 = new Player(player1Name, false, DifficultyLevel.EASY,
-                        boardForUser.getSize(), '.', 'S', 'X', 'O');
+                player1 = new Player(
+                        p1Name,
+                        DifficultyLevel.EASY, // placeholder
+                        boardForUser.getSize(),
+                        boardForUser.getWaterChar(),
+                        boardForUser.getShipChar(),
+                        boardForUser.getHitChar(),
+                        boardForUser.getMissChar()
+                );
                 player1.setBoard(boardForUser);
 
-                player2 = new Player(player2Name, false, DifficultyLevel.EASY,
-                        boardForAI.getSize(), '.', 'S', 'X', 'O');
+                player2 = new Player(
+                        p2Name,
+                        DifficultyLevel.EASY,
+                        boardForAI.getSize(),
+                        boardForAI.getWaterChar(),
+                        boardForAI.getShipChar(),
+                        boardForAI.getHitChar(),
+                        boardForAI.getMissChar()
+                );
                 player2.setBoard(boardForAI);
+
+                armorTokensPlayer1 = 2;
+                armorTokensPlayer2 = 2;
             }
-            case 2 -> { // Gracz vs Komputer
+            case 2 -> {
+                // Gracz vs Komputer
                 view.displayMessage("Podaj nazwę Gracza 1:");
                 String playerName = scanner.nextLine();
-                DifficultyLevel aiDifficulty = chooseAiDifficulty();
+                DifficultyLevel aiDiff = chooseAiDifficulty();
 
-                player1 = new Player(playerName, false, DifficultyLevel.EASY,
-                        boardForUser.getSize(), '.', 'S', 'X', 'O');
+                player1 = new Player(
+                        playerName,
+                        DifficultyLevel.EASY, // ludzki gracz
+                        boardForUser.getSize(),
+                        boardForUser.getWaterChar(),
+                        boardForUser.getShipChar(),
+                        boardForUser.getHitChar(),
+                        boardForUser.getMissChar()
+                );
                 player1.setBoard(boardForUser);
 
-                AIStrategy strategy = selectAIStrategy(aiDifficulty);
-
-                player2 = new AIPlayer("Komputer", aiDifficulty,
-                        boardForAI.getSize(), '.', 'S', 'X', 'O', strategy);
+                AIStrategy strategy = selectAIStrategy(aiDiff);
+                player2 = new AIPlayer(
+                        "Komputer",
+                        aiDiff,
+                        boardForAI.getSize(),
+                        boardForAI.getWaterChar(),
+                        boardForAI.getShipChar(),
+                        boardForAI.getHitChar(),
+                        boardForAI.getMissChar(),
+                        strategy
+                );
                 player2.setBoard(boardForAI);
+
+                armorTokensPlayer1 = 2;
+                armorTokensPlayer2 = 2;
             }
-            case 3 -> { // Komputer vs Komputer (symulacja)
-                DifficultyLevel ai1Difficulty = chooseAiDifficulty("Ustaw trudność dla AI1: 1. EASY, 2. MEDIUM, 3. HARD");
-                DifficultyLevel ai2Difficulty = chooseAiDifficulty("Ustaw trudność dla AI2: 1. EASY, 2. MEDIUM, 3. HARD");
+            case 3 -> {
+                // AI vs AI
+                DifficultyLevel ai1Diff = chooseAiDifficulty("Ustaw trudność dla AI1: 1. EASY, 2. MEDIUM, 3. HARD");
+                DifficultyLevel ai2Diff = chooseAiDifficulty("Ustaw trudność dla AI2: 1. EASY, 2. MEDIUM, 3. HARD");
 
-                AIStrategy ai1Strategy = selectAIStrategy(ai1Difficulty);
-                AIStrategy ai2Strategy = selectAIStrategy(ai2Difficulty);
+                AIStrategy ai1Strategy = selectAIStrategy(ai1Diff);
+                AIStrategy ai2Strategy = selectAIStrategy(ai2Diff);
 
-                player1 = new AIPlayer("AI1", ai1Difficulty,
-                        boardForUser.getSize(), '.', 'S', 'X', 'O', ai1Strategy);
+                player1 = new AIPlayer(
+                        "AI1",
+                        ai1Diff,
+                        boardForUser.getSize(),
+                        boardForUser.getWaterChar(),
+                        boardForUser.getShipChar(),
+                        boardForUser.getHitChar(),
+                        boardForUser.getMissChar(),
+                        ai1Strategy
+                );
                 player1.setBoard(boardForUser);
 
-                player2 = new AIPlayer("AI2", ai2Difficulty,
-                        boardForAI.getSize(), '.', 'S', 'X', 'O', ai2Strategy);
+                player2 = new AIPlayer(
+                        "AI2",
+                        ai2Diff,
+                        boardForAI.getSize(),
+                        boardForAI.getWaterChar(),
+                        boardForAI.getShipChar(),
+                        boardForAI.getHitChar(),
+                        boardForAI.getMissChar(),
+                        ai2Strategy
+                );
                 player2.setBoard(boardForAI);
+
+                armorTokensPlayer1 = 2;
+                armorTokensPlayer2 = 2;
             }
             default -> {
-                view.displayMessage("Nieprawidłowy wybór! Kończę działanie.");
-                System.exit(0);
+                view.displayMessage("Nieprawidłowy wybór – anuluję.");
+                return;
             }
         }
 
-        // Teraz tworzymy grę i uruchamiamy
+        // 4. Tworzymy obiekt gry
         this.game = new BattleshipGame(player1, player2);
+        // Wczytujemy statystyki do nowego obiektu
+        try {
+            this.game.getStatistics().loadFromFile("stats.txt");
+        } catch (IOException e) {
+            view.displayMessage("Brak pliku statystyk albo błąd wczytywania.");
+        }
 
-        // Wywołujemy naszą starą metodę, która faktycznie rozgrywa grę (pętla strzałów itd.)
-        startGame();
+        // 5. Rozpoczęcie rozgrywki z uwzględnieniem shipSizes
+        startGame(shipSizes);
     }
 
     /**
-     * Metoda, która uruchamia główną pętlę rozgrywki.
-     * (Ta część już była w GameController w Twoim kodzie).
+     * Główna pętla rozgrywki: przyjmujemy shipSizes (ile i jakie statki).
      */
-    public void startGame() {
-        // Zawartość Twojego dotychczasowego startGame() - bez zmian
-        Player player1 = game.getPlayer1();
-        Player player2 = game.getPlayer2();
+    public void startGame(int[] shipSizes) {
+        Player p1 = game.getPlayer1();
+        Player p2 = game.getPlayer2();
 
-        // 1. Rozmieszczenie statków
-        placeShipsForPlayer(player1);
-        placeShipsForPlayer(player2);
+        // Rozmieszczenie statków
+        placeShipsForPlayer(p1, shipSizes);
+        placeShipsForPlayer(p2, shipSizes);
 
-        // 2. Główna pętla gry
+        // Główna pętla
         game.getStatistics().incrementTotalGames();
-        Player currentPlayer = player1;
-        Player opponent = player2;
+        Player currentPlayer = p1;
+        Player opponent = p2;
 
         while (true) {
             roundCount++;
-            view.printBoards(player1, player2, determineGameMode(player1, player2));
+            view.printBoards(p1, p2, determineGameMode(p1, p2));
 
-            if (!currentPlayer.isAI()) {
+            if (currentPlayer instanceof AIPlayer ai) {
+                view.displayMessage("Tura gracza AI: " + currentPlayer.getName());
+                MoveCommand cmd = ai.makeMove();
+                currentPlayer.executeCommand(cmd);
+            } else {
                 view.displayMessage("Tura gracza: " + currentPlayer.getName());
-                view.displayMessage("Wpisz 'undo', aby cofnąć ruch, lub naciśnij Enter, aby kontynuować.");
-                String input = scanner.nextLine();
-                if (input.equalsIgnoreCase("undo")) {
-                    if (currentPlayer.undoLastCommand()) {
-                        view.displayMessage("Cofnięto ostatni ruch.");
-                        continue;
-                    } else {
-                        view.displayMessage("Brak ruchów do cofnięcia.");
-                        continue;
-                    }
+                Position shot = getShotFromUserOrUndo(currentPlayer, opponent.getBoard());
+                if (shot == null) {
+                    // cofnięcie
+                    continue;
                 }
+                Command moveCommand = new MoveCommand(opponent.getBoard(), shot);
+                currentPlayer.executeCommand(moveCommand);
             }
-
-            executePlayerTurn(currentPlayer, opponent);
 
             if (checkVictoryCondition(currentPlayer, opponent)) {
                 break;
             }
 
-            if (currentPlayer.isAI() && opponent.isAI()) {
-                view.displayMessage("Naciśnij Enter, aby przejść do kolejnego ruchu...");
+            // AI vs AI => pauza
+            if (currentPlayer instanceof AIPlayer && opponent instanceof AIPlayer) {
+                view.displayMessage("ENTER => kolejny ruch AI vs AI...");
                 scanner.nextLine();
             } else {
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
 
             // Zmiana tury
-            Player temp = currentPlayer;
+            Player tmp = currentPlayer;
             currentPlayer = opponent;
-            opponent = temp;
+            opponent = tmp;
         }
 
-        // Po zakończeniu gry
+        // Zapis statystyk
+        try {
+            game.getStatistics().saveToFile("stats.txt");
+        } catch (IOException e) {
+            view.displayMessage("Błąd zapisu statystyk: " + e.getMessage());
+        }
+
+        // Wyświetlamy końcowy ranking i historię
         view.displayMessage(game.getStatistics().getRanking());
         view.displayMessage(game.getStatistics().getGameHistory());
     }
 
-    // ----------------------------
-    // Metody pomocnicze przeniesione z Main (lub analogiczne)
-    // ----------------------------
-
-    private DifficultyLevel chooseAiDifficulty() {
-        return chooseAiDifficulty("Wybierz poziom trudności AI: 1. EASY, 2. MEDIUM, 3. HARD");
-    }
-
-    private DifficultyLevel chooseAiDifficulty(String message) {
-        view.displayMessage(message);
-        int choice = readInt();
-        return switch (choice) {
-            case 1 -> DifficultyLevel.EASY;
-            case 2 -> DifficultyLevel.MEDIUM;
-            case 3 -> DifficultyLevel.HARD;
-            default -> {
-                view.displayMessage("Nieprawidłowy wybór, domyślnie EASY.");
-                yield DifficultyLevel.EASY;
+    /**
+     * Wczytuje od gracza liczbę statków i ich rozmiary.
+     * Jeśli gracz wybierze "domyślne", zwracamy np. [4,3].
+     */
+    private int[] askForShipSizes() {
+        view.displayMessage("Czy chcesz użyć domyślnej listy statków (4 i 3)? (tak/nie)");
+        String ans = scanner.nextLine().trim();
+        if (ans.equalsIgnoreCase("tak")) {
+            return defaultShipSizes;
+        } else {
+            // Niestandardowe
+            view.displayMessage("Ile statków chcesz rozmieszczać?");
+            int count = readInt();
+            int[] sizes = new int[count];
+            for (int i = 0; i < count; i++) {
+                view.displayMessage("Podaj rozmiar statku nr " + (i+1) + ":");
+                sizes[i] = readInt();
             }
-        };
+            return sizes;
+        }
     }
 
-    private AIStrategy selectAIStrategy(DifficultyLevel difficulty) {
-        return switch (difficulty) {
-            case EASY -> new RandomStrategy();
-            case MEDIUM -> new HuntStrategy();
-            case HARD -> new SystematicStrategy();
-        };
+    // -------------
+    // Metody do rozgrywki
+    // -------------
+
+    private boolean checkVictoryCondition(Player currentPlayer, Player opponent) {
+        if (opponent.getBoard().allShipsSunk()) {
+            view.displayMessage("Wszystkie statki zatopione! Wygrywa: " + currentPlayer.getName());
+            game.getStatistics().addWinForPlayer(currentPlayer.getName());
+            game.getStatistics().addGameHistoryEntry(
+                    new GameHistoryEntry(determineGameMode(game.getPlayer1(), game.getPlayer2()),
+                            currentPlayer.getName(), roundCount)
+            );
+            if (roundCount <= 10) {
+                unlockAchievement("Zwycięstwo w 10 ruchach!");
+            }
+            return true;
+        }
+        return false;
     }
+
+    private String determineGameMode(Player p1, Player p2) {
+        boolean p1AI = (p1 instanceof AIPlayer);
+        boolean p2AI = (p2 instanceof AIPlayer);
+        if (!p1AI && !p2AI) return "PVP";
+        if (p1AI && p2AI)   return "AI vs AI";
+        return "PVE";
+    }
+
+    private void unlockAchievement(String achievementDescription) {
+        for (Achievement a : game.getAchievements()) {
+            if (a.getDescription().equals(achievementDescription) && !a.isUnlocked()) {
+                a.unlock();
+                view.displayMessage("[Osiągnięcie] Odblokowano: " + achievementDescription);
+            }
+        }
+    }
+
+    private Position getShotFromUserOrUndo(Player currentPlayer, Board opponentBoard) {
+        while (true) {
+            view.displayMessage("Podaj pozycję do strzału (x,y) albo 'undo': ");
+            String line = scanner.nextLine().trim();
+            if (line.equalsIgnoreCase("undo")) {
+                boolean undone = currentPlayer.undoLastCommand();
+                if (undone) {
+                    view.displayMessage("Cofnięto ostatni ruch.");
+                } else {
+                    view.displayMessage("Brak ruchów do cofnięcia.");
+                }
+                return null;
+            }
+            Position pos = parsePosition(line);
+            if (pos == null) {
+                view.displayMessage("Zły format (x,y). Spróbuj ponownie.");
+                continue;
+            }
+            int size = opponentBoard.getSize();
+            if (pos.getRow() < 0 || pos.getRow() >= size || pos.getCol() < 0 || pos.getCol() >= size) {
+                view.displayMessage("Poza planszą! Spróbuj ponownie.");
+                continue;
+            }
+            return pos;
+        }
+    }
+
+    // -------------
+    // Rozmieszczanie statków
+    // -------------
+
+    private void placeShipsForPlayer(Player player, int[] shipSizes) {
+        if (player instanceof AIPlayer) {
+            view.displayMessage("Rozmieszczanie statków (AI): " + player.getName());
+            placeShipsStandard(player, shipSizes);
+        } else {
+            view.displayMessage("Rozmieszczanie statków (Gracz): " + player.getName());
+            view.printBoard(player.getBoard(), true);
+            placeShipsManually(player, shipSizes);
+        }
+    }
+
+    private void placeShipsManually(Player player, int[] shipSizes) {
+        Board board = player.getBoard();
+
+        int myArmorTokens = (player == game.getPlayer1()) ? armorTokensPlayer1 : armorTokensPlayer2;
+
+        for (int size : shipSizes) {
+            boolean placed = false;
+            while (!placed) {
+                view.displayMessage("Rozmieszczanie statku o długości " + size);
+                view.printBoard(board, true);
+
+                view.displayMessage("Podaj start (x,y): ");
+                Position startPos = parsePosition(scanner.nextLine().trim());
+                if (startPos == null) {
+                    view.displayMessage("Zły format x,y.");
+                    continue;
+                }
+
+                int startRow = startPos.getRow();
+                int startCol = startPos.getCol();
+
+                if (!checkWithinBoard(board, startRow, startCol)) {
+                    view.displayMessage("Poza planszą. Spróbuj ponownie.");
+                    continue;
+                }
+
+                view.displayMessage("Orientacja: (h) - pozioma, (v) - pionowa");
+                String orientation = scanner.nextLine().trim().toLowerCase();
+
+                IShip ship = new Ship();
+                boolean validOrientation = true;
+                for (int i = 0; i < size; i++) {
+                    if (orientation.equals("h")) {
+                        ship.addPosition(new Position(startRow, startCol + i));
+                    } else if (orientation.equals("v")) {
+                        ship.addPosition(new Position(startRow + i, startCol));
+                    } else {
+                        view.displayMessage("Nieprawidłowa orientacja. Wpisz 'h' lub 'v'.");
+                        validOrientation = false;
+                        break;
+                    }
+                }
+                if (!validOrientation) {
+                    continue;
+                }
+
+                placed = board.placeShip(ship);
+                if (!placed) {
+                    view.displayMessage("Nie można umieścić statku w podanym miejscu.");
+                } else {
+                    // Pytanie o pancerz
+                    if (myArmorTokens > 0) {
+                        view.displayMessage("Dodać pancerz? (tak/nie). Pozostało: " + myArmorTokens);
+                        String armorChoice = scanner.nextLine().trim();
+                        if (armorChoice.equalsIgnoreCase("tak")) {
+                            IShip armored = new ArmoredShipDecorator(ship);
+                            board.getShips().remove(ship);
+                            board.getShips().add(armored);
+                            myArmorTokens--;
+                            view.displayMessage("Dodano pancerz!");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (player == game.getPlayer1()) armorTokensPlayer1 = myArmorTokens;
+        else armorTokensPlayer2 = myArmorTokens;
+
+        view.printBoard(board, true);
+        view.displayMessage("Rozmieszczanie zakończone. (Enter)");
+        scanner.nextLine();
+    }
+
+    private void placeShipsStandard(Player player, int[] shipSizes) {
+        Board board = player.getBoard();
+        int myArmorTokens = (player == game.getPlayer1()) ? armorTokensPlayer1 : armorTokensPlayer2;
+
+        for (int size : shipSizes) {
+            boolean placed = false;
+            while (!placed) {
+                int row = (int) (Math.random() * board.getSize());
+                int col = (int) (Math.random() * board.getSize());
+                boolean horizontal = Math.random() < 0.5;
+
+                IShip ship = new Ship();
+                for (int i = 0; i < size; i++) {
+                    if (horizontal) {
+                        ship.addPosition(new Position(row, col + i));
+                    } else {
+                        ship.addPosition(new Position(row + i, col));
+                    }
+                }
+                placed = board.placeShip(ship);
+                if (placed && myArmorTokens > 0) {
+                    IShip armored = new ArmoredShipDecorator(ship);
+                    board.getShips().remove(ship);
+                    board.getShips().add(armored);
+                    myArmorTokens--;
+                }
+            }
+        }
+
+        if (player == game.getPlayer1()) armorTokensPlayer1 = myArmorTokens;
+        else armorTokensPlayer2 = myArmorTokens;
+    }
+
+    private boolean checkWithinBoard(Board board, int row, int col) {
+        return row >= 0 && row < board.getSize() && col >= 0 && col < board.getSize();
+    }
+
+    // -------------
+    // Metody do budowania planszy
+    // -------------
 
     /**
-     * Konfigurowanie planszy interaktywnie (przeniesione z Main).
+     * Konfigurowanie w trybie interaktywnym.
+     * Możesz ewentualnie pominąć część pytań i dać stałe parametry.
      */
     private Board configureBoardInteractively() {
-        view.displayMessage("Podaj rozmiar planszy:");
+        view.displayMessage("Podaj rozmiar planszy (np. 10):");
         int size = readInt();
 
         view.displayMessage("Podaj znak wody (np. '.'): ");
@@ -232,10 +526,9 @@ public class GameController {
         view.displayMessage("Podaj znak pudła (np. 'O'): ");
         char missChar = scanner.nextLine().trim().charAt(0);
 
-        view.displayMessage("Czy chcesz dodać kamienie na planszy? (tak/nie)");
+        view.displayMessage("Dodać kamienie? (tak/nie)");
         String addStones = scanner.nextLine().trim();
         List<Stone> stones = null;
-
         if (addStones.equalsIgnoreCase("tak")) {
             stones = collectStones();
         }
@@ -245,6 +538,10 @@ public class GameController {
         return director.constructBoard(size, stones, waterChar, shipChar, hitChar, missChar);
     }
 
+    /**
+     * Konfigurowanie w trybie standardowym.
+     * Stały rozmiar 10 i znaki . S X O (lub dowolnie).
+     */
     private Board configureStandardBoard() {
         BoardBuilderInterface builder = BoardBuilder.builder();
         BoardDirector director = new BoardDirector(builder);
@@ -253,186 +550,77 @@ public class GameController {
 
     private List<Stone> collectStones() {
         List<Stone> stones = new ArrayList<>();
-        view.displayMessage("Podaj pozycje kamieni w formacie x,y lub wpisz 'koniec', aby zakończyć:");
+        view.displayMessage("Podaj pozycje kamieni x,y lub wpisz 'koniec':");
         while (true) {
             String input = scanner.nextLine().trim();
             if (input.equalsIgnoreCase("koniec")) {
                 break;
             }
-            String[] parts = input.split(",");
-            if (parts.length == 2) {
-                try {
-                    int x = Integer.parseInt(parts[0]);
-                    int y = Integer.parseInt(parts[1]);
-                    stones.add(new Stone(List.of(new Position(x, y))));
-                } catch (NumberFormatException e) {
-                    view.displayMessage("Nieprawidłowy format pozycji. Spróbuj ponownie.");
-                }
+            Position pos = parsePosition(input);
+            if (pos != null) {
+                stones.add(new Stone(List.of(pos)));
             } else {
-                view.displayMessage("Nieprawidłowy format. Użyj formatu x,y.");
+                view.displayMessage("Zły format. Użyj x,y.");
             }
         }
         return stones;
     }
 
+    /**
+     * Metoda do czytania int z linii.
+     */
     private int readInt() {
         while (true) {
             try {
                 return Integer.parseInt(scanner.nextLine());
             } catch (NumberFormatException e) {
-                view.displayMessage("Nieprawidłowa liczba. Spróbuj ponownie.");
+                view.displayMessage("Zła liczba, spróbuj ponownie.");
             }
         }
     }
 
-    // --------------------------------------------------------
-    // Reszta metod (placeShipsForPlayer, executePlayerTurn, checkVictoryCondition itd.)
-    // pozostaje bez zmian – już masz je w GameController.
-    // --------------------------------------------------------
-
-    private void placeShipsForPlayer(Player player) {
-        if (!player.isAI()) {
-            view.displayMessage("Rozmieszczanie statków dla Gracza (" + player.getName() + ")");
-            view.printBoard(player.getBoard(), true);
-            placeShipsManually(player);
-        } else {
-            view.displayMessage("Rozmieszczanie statków dla Komputera (" + player.getName() + ")");
-            placeShipsStandard(player);
+    /**
+     * Metoda do parsowania formatu x,y w Position.
+     */
+    private Position parsePosition(String input) {
+        String[] parts = input.split(",");
+        if (parts.length != 2) return null;
+        try {
+            int x = Integer.parseInt(parts[0].trim());
+            int y = Integer.parseInt(parts[1].trim());
+            return new Position(x, y);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
-    private void placeShipsManually(Player player) {
-        // ... (bez zmian)
-        Board board = player.getBoard();
-        int[] shipSizes = {4, 3};
+    // -------------
+    // Metody do AI
+    // -------------
 
-        for (int size : shipSizes) {
-            boolean placed = false;
-            while (!placed) {
-                view.displayMessage("Rozmieszczanie statku o długości " + size);
-                view.printBoard(board, true);
-                view.displayMessage("Podaj wiersz początkowy (0-" + (board.getSize() - 1) + "): ");
-                int startRow = readInt();
-                view.displayMessage("Podaj kolumnę początkową (0-" + (board.getSize() - 1) + "): ");
-                int startCol = readInt();
-                view.displayMessage("Wybierz orientację: 1. Pozioma (h), 2. Pionowa (v)");
-                String orientation = scanner.next().toLowerCase();
-                scanner.nextLine();
+    private DifficultyLevel chooseAiDifficulty() {
+        return chooseAiDifficulty("Wybierz poziom trudności AI: 1. EASY, 2. MEDIUM, 3. HARD");
+    }
 
-                Ship ship = new Ship();
-                boolean validOrientation = true;
-                for (int i = 0; i < size; i++) {
-                    if (orientation.equals("1") || orientation.equals("h")) {
-                        ship.addPosition(new Position(startRow, startCol + i));
-                    } else if (orientation.equals("2") || orientation.equals("v")) {
-                        ship.addPosition(new Position(startRow + i, startCol));
-                    } else {
-                        view.displayMessage("Nieprawidłowa orientacja. Spróbuj ponownie.");
-                        ship.getPositions().clear();
-                        validOrientation = false;
-                        break;
-                    }
-                }
-                if (!validOrientation) {
-                    continue;
-                }
-                placed = board.placeShip(ship);
-                if (!placed) {
-                    view.displayMessage("Nie można umieścić statku w podanym miejscu. Spróbuj ponownie.");
-                }
+    private DifficultyLevel chooseAiDifficulty(String message) {
+        view.displayMessage(message);
+        int choice = readInt();
+        return switch (choice) {
+            case 1 -> DifficultyLevel.EASY;
+            case 2 -> DifficultyLevel.MEDIUM;
+            case 3 -> DifficultyLevel.HARD;
+            default -> {
+                view.displayMessage("Nieprawidłowy wybór, przyjmuję EASY.");
+                yield DifficultyLevel.EASY;
             }
-        }
-        view.printBoard(board, true);
-        view.displayMessage("Rozmieszczanie statków zakończone. Naciśnij Enter, aby kontynuować.");
-        scanner.nextLine();
+        };
     }
 
-    private void placeShipsStandard(Player player) {
-        // ... (bez zmian)
-        Board board = player.getBoard();
-        int[] shipSizes = {4, 3};
-
-        for (int size : shipSizes) {
-            boolean placed = false;
-            while (!placed) {
-                int row = (int) (Math.random() * board.getSize());
-                int col = (int) (Math.random() * board.getSize());
-                boolean horizontal = Math.random() < 0.5;
-
-                Ship ship = new Ship();
-                for (int i = 0; i < size; i++) {
-                    if (horizontal) {
-                        ship.addPosition(new Position(row, col + i));
-                    } else {
-                        ship.addPosition(new Position(row + i, col));
-                    }
-                }
-                placed = board.placeShip(ship);
-            }
-        }
-    }
-
-    private void executePlayerTurn(Player currentPlayer, Player opponent) {
-        Position shot;
-        Board opponentBoard = opponent.getBoard();
-
-        if (!currentPlayer.isAI()) {
-            shot = getShotFromUser();
-        } else {
-            shot = game.getAiShot(currentPlayer, opponentBoard);
-            view.displayMessage("AI (" + currentPlayer.getName() + ") wybrało strzał: " + shot);
-        }
-
-        Command moveCommand = new MoveCommand(opponentBoard, shot);
-        currentPlayer.executeCommand(moveCommand);
-
-        char cellState = opponentBoard.getGrid()[shot.getRow()][shot.getCol()];
-        if (cellState == opponentBoard.getHitChar()) {
-            view.displayMessage("Trafiony!");
-        } else if (cellState == opponentBoard.getMissChar()) {
-            view.displayMessage("Pudło.");
-        }
-    }
-
-    private boolean checkVictoryCondition(Player currentPlayer, Player opponent) {
-        if (opponent.getBoard().allShipsSunk()) {
-            view.displayMessage("Wszystkie statki zatopione! Wygrywa: " + currentPlayer.getName());
-            game.getStatistics().addWinForPlayer(currentPlayer.getName());
-            game.getStatistics().addGameHistoryEntry(
-                    new GameHistoryEntry(determineGameMode(game.getPlayer1(), game.getPlayer2()), currentPlayer.getName(), roundCount)
-            );
-            if (roundCount <= 10) {
-                unlockAchievement("Zwycięstwo w 10 ruchach!");
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private Position getShotFromUser() {
-        view.displayMessage("Podaj wiersz (0-9): ");
-        int row = readInt();
-        view.displayMessage("Podaj kolumnę (0-9): ");
-        int col = readInt();
-        return new Position(row, col);
-    }
-
-    private void unlockAchievement(String achievementDescription) {
-        for (Achievement a : game.getAchievements()) {
-            if (a.getDescription().equals(achievementDescription) && !a.isUnlocked()) {
-                a.unlock();
-                view.displayMessage("[Osiągnięcie] Odblokowano: " + achievementDescription);
-            }
-        }
-    }
-
-    private String determineGameMode(Player p1, Player p2) {
-        if (!p1.isAI() && !p2.isAI()) {
-            return "PVP";
-        } else if (p1.isAI() && p2.isAI()) {
-            return "AI vs AI";
-        } else {
-            return "PVE";
-        }
+    private AIStrategy selectAIStrategy(DifficultyLevel difficulty) {
+        return switch (difficulty) {
+            case EASY -> new RandomStrategy();
+            case MEDIUM -> new HuntStrategy();
+            case HARD -> new SystematicStrategy();
+        };
     }
 }
