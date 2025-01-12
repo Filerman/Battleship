@@ -4,15 +4,16 @@ import java.util.List;
 
 /**
  * Klasa reprezentująca "kamień" (przeszkodę) na planszy.
+ * Kamienie są zawsze niezniszczalne.
  */
 public class Stone {
     private List<Position> positions; // Pola, które zajmuje kamień (może być wielopolowy)
-    private boolean destructible;     // Czy kamień można zniszczyć?
+    // Usuwamy możliwość zmiany flagi – kamienie są niezniszczalne
+    private final boolean destructible = false;
 
     // Konstruktor pakietowy – wymusza tworzenie przez StoneBuilder
-    Stone(List<Position> positions, boolean destructible) {
+    Stone(List<Position> positions) {
         this.positions = positions;
-        this.destructible = destructible;
     }
 
     public List<Position> getPositions() {

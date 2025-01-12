@@ -31,7 +31,6 @@ public class Main {
                 // Dodajemy kamień jednopolowy (np. na pozycji (5,5))
                 .addStone(StoneBuilder.builder()
                         .addPosition(5, 5)
-                        .setDestructible(true)
                         .build())
                 // Dodajemy kamień dwupolowy (np. na pozycjach (7,7) i (7,8))
                 .addStone(StoneBuilder.builder()

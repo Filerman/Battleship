@@ -12,7 +12,6 @@ public class BoardBuilderMainTest {
                 // Dodajemy kamień jednopolowy
                 .addStone(StoneBuilder.builder()
                         .addPosition(5, 5)
-                        .setDestructible(true)
                         .build())
                 // Dodajemy kamień dwupolowy
                 .addStone(StoneBuilder.builder()

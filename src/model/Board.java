@@ -120,19 +120,10 @@ public class Board {
         // Obsługa trafienia w kamień
         if (grid[r][c] == 'K') {
             System.out.println("Trafiłeś w kamień!");
-            for (Stone stone : stones) {
-                if (stone.getPositions().contains(position)) {
-                    if (stone.isDestructible()) {
-                        grid[r][c] = waterChar;
-                        System.out.println("Kamień został zniszczony!");
-                    } else {
-                        System.out.println("Kamień jest niezniszczalny!");
-                    }
-                    break;
-                }
-            }
+            System.out.println("Kamień jest niezniszczalny!");
             return false;
         }
+
 
         // Sprawdzamy trafienie w statek
         if (grid[r][c] == shipChar) {

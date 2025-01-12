@@ -5,10 +5,11 @@ import java.util.List;
 
 /**
  * Builder do tworzenia obiektów Stone.
+ * Kamienie są zawsze niezniszczalne.
  */
 public class StoneBuilder {
     private List<Position> positions = new ArrayList<>();
-    private boolean destructible = false; // domyślnie kamień jest niezniszczalny
+    // Usuwamy flagę destructible – domyślnie kamień będzie niezniszczalny
 
     // Metoda statyczna inicjująca buildera
     public static StoneBuilder builder() {
@@ -24,17 +25,10 @@ public class StoneBuilder {
     }
 
     /**
-     * Ustawia, czy kamień jest podatny na zniszczenie.
-     */
-    public StoneBuilder setDestructible(boolean destructible) {
-        this.destructible = destructible;
-        return this;
-    }
-
-    /**
      * Buduje finalny obiekt Stone.
      */
     public Stone build() {
-        return new Stone(positions, destructible);
+        // Kamienie zawsze są niezniszczalne – flaga nie jest ustawiana
+        return new Stone(positions);
     }
 }
