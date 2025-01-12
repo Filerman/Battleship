@@ -1,11 +1,12 @@
 package model;
 
 import java.util.Stack;
+
 public class Player {
     private String name;
     private Board board;  // plansza gracza
     private boolean isAI; // czy to komputer
-    private DifficultyLevel difficultyLevel; // poziom trudności AI
+    private DifficultyLevel difficultyLevel;
     private Stack<Command> commandHistory;
 
     public Player(String name, boolean isAI, DifficultyLevel difficultyLevel,
@@ -13,8 +14,14 @@ public class Player {
         this.name = name;
         this.isAI = isAI;
         this.difficultyLevel = difficultyLevel;
+        // Domyślna inicjalizacja planszy – może być później nadpisana za pomocą setBoard()
         this.board = new Board(boardSize, waterChar, shipChar, hitChar, missChar);
         this.commandHistory = new Stack<>();
+    }
+
+    // Dodajemy setter do planszy, aby można było zmienić planszę po utworzeniu obiektu Player.
+    public void setBoard(Board board) {
+        this.board = board;
     }
 
     public String getName() {
@@ -35,16 +42,15 @@ public class Player {
 
     public void executeCommand(Command command) {
         command.execute();
-        commandHistory.push(command); // Dodaj polecenie do historii
+        commandHistory.push(command);
     }
 
-    // Cofnięcie ostatniego polecenia
     public boolean undoLastCommand() {
         if (!commandHistory.isEmpty()) {
             Command lastCommand = commandHistory.pop();
             lastCommand.undo();
             return true;
         }
-        return false; // Brak poleceń do cofnięcia
+        return false;
     }
 }

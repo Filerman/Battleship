@@ -8,9 +8,12 @@ import java.util.List;
  */
 public class Board {
     private final int SIZE;               // Rozmiar planszy (np. 10)
-    private char[][] grid;                // wizualne odwzorowanie planszy
+    private char[][] grid;                // Wizualne odwzorowanie planszy
     private List<Ship> ships;
-    private List<Position> shotsFired;    // historia oddanych strzałów
+    private List<Position> shotsFired;    // Historia oddanych strzałów
+
+    // Lista kamieni (przeszkód) na planszy
+    private List<Stone> stones;
 
     // Znaki do personalizacji wyglądu
     private char waterChar;
@@ -26,10 +29,13 @@ public class Board {
         this.grid = new char[SIZE][SIZE];
         this.ships = new ArrayList<>();
         this.shotsFired = new ArrayList<>();
+        this.stones = new ArrayList<>();
+
         this.waterChar = waterChar;
         this.shipChar = shipChar;
         this.hitChar = hitChar;
         this.missChar = missChar;
+
         initBoard();
     }
 
@@ -45,8 +51,11 @@ public class Board {
         return SIZE;
     }
 
+    /**
+     * Umieszcza statek na planszy (rozmieszczanie statków odbywa się ręcznie).
+     */
     public boolean placeShip(Ship ship) {
-        // Sprawdza, czy można umieścić statek (czy nie koliduje z innym)
+        // Sprawdzamy kolizje z innymi statkami
         for (Position p : ship.getPositions()) {
             int r = p.getRow();
             int c = p.getCol();
@@ -65,29 +74,69 @@ public class Board {
     }
 
     /**
+     * Umieszczanie kamienia (przeszkody) na planszy.
+     */
+    public boolean placeStone(Stone stone) {
+        for (Position p : stone.getPositions()) {
+            int r = p.getRow();
+            int c = p.getCol();
+
+            // Sprawdzamy, czy pozycja mieści się w planszy
+            if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) {
+                return false;
+            }
+            // Sprawdzamy, czy pole nie jest już zajęte przez statek lub inny kamień ('K')
+            if (grid[r][c] == shipChar || grid[r][c] == 'K') {
+                return false;
+            }
+        }
+
+        // Umieszczamy kamień – oznaczamy pole znakiem 'K'
+        for (Position p : stone.getPositions()) {
+            grid[p.getRow()][p.getCol()] = 'K';
+        }
+        stones.add(stone);
+        return true;
+    }
+
+    /**
      * Oddanie strzału w daną pozycję.
-     * Zwraca wartość true, jeżeli jest trafienie; false w przypadku pudła.
+     * Zwraca true, jeżeli trafiono w statek; false w przypadku pudła lub trafienia w kamień.
      */
     public boolean shoot(Position position) {
         int r = position.getRow();
         int c = position.getCol();
 
-        // Strzał poza planszę
         if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) {
             System.out.println("Strzał poza planszę!");
             return false;
         }
-        // Jeżeli już strzelaliśmy w to samo miejsce
         if (shotsFired.contains(position)) {
             System.out.println("Już strzelano w to miejsce!");
             return false;
         }
         shotsFired.add(position);
 
-        // Sprawdzamy, czy trafiliśmy statek
+        // Obsługa trafienia w kamień
+        if (grid[r][c] == 'K') {
+            System.out.println("Trafiłeś w kamień!");
+            for (Stone stone : stones) {
+                if (stone.getPositions().contains(position)) {
+                    if (stone.isDestructible()) {
+                        grid[r][c] = waterChar;
+                        System.out.println("Kamień został zniszczony!");
+                    } else {
+                        System.out.println("Kamień jest niezniszczalny!");
+                    }
+                    break;
+                }
+            }
+            return false;
+        }
+
+        // Sprawdzamy trafienie w statek
         if (grid[r][c] == shipChar) {
-            grid[r][c] = hitChar; // trafiony
-            // Aktualizujemy stan statków (czy któryś nie został zatopiony?)
+            grid[r][c] = hitChar;
             for (Ship s : ships) {
                 if (s.isHit(position)) {
                     s.checkIfSunk(shotsFired);
@@ -100,7 +149,6 @@ public class Board {
                 }
             }
         } else {
-            // Pudło
             grid[r][c] = missChar;
             System.out.println("Pudło.");
             return false;
