@@ -11,20 +11,29 @@ public class ConsoleView {
     }
 
     /**
-     * Wyświetla dwie plansze obok siebie (przykładowo).
-     * Możesz wprowadzić np. "mgłę wojny" dla planszy przeciwnika (by nie widzieć statków).
+     * Wyświetla dwie plansze obok siebie.
+     * Jeśli obaj gracze są AI, wyświetlamy statki obu graczy.
      */
     public void printBoards(Player player1, Player player2) {
+        boolean showShipsPlayer1 = true;
+        boolean showShipsPlayer2 = true;
+
+        // Jeśli przynajmniej jeden gracz nie jest AI, stosujemy dotychczasową logikę
+        if (!player1.isAI() || !player2.isAI()) {
+            // Dla gracza ludzkiego lub trybu Gracz vs Gracz – uzywamy oryginalnej logiki:
+            showShipsPlayer1 = !player1.isAI();
+            showShipsPlayer2 = !player2.isAI();
+        }
+
         System.out.println("------- Plansza " + player1.getName() + " -------");
-        printBoard(player1.getBoard(), true);   // true = widzimy statki
+        printBoard(player1.getBoard(), showShipsPlayer1);
         System.out.println("------- Plansza " + player2.getName() + " -------");
-        // Możemy wprowadzić mgłę wojny, np. false = nie pokazuj statków
-        printBoard(player2.getBoard(), player2.isAI() ? false : true);
+        printBoard(player2.getBoard(), showShipsPlayer2);
     }
 
     /**
      * Wyświetla jedną planszę w konsoli.
-     * Jeśli showShips=false, znak statku zamieniamy na wodę, aby nie pokazywać pozycji statków.
+     * Jeśli showShips=false, to znak statku zamieniamy na wodę.
      */
     public void printBoard(Board board, boolean showShips) {
         char[][] grid = board.getGrid();
@@ -45,17 +54,15 @@ public class ConsoleView {
             for (int c = 0; c < grid[r].length; c++) {
                 char cell = grid[r][c];
                 String output;
-
                 if (cell == waterChar) {
                     output = AnsiColors.BLUE + cell + AnsiColors.RESET;
-                } else if (cell == 'K') { // kamień – ustawiany w metodzie placeStone
+                } else if (cell == 'K') {
                     output = AnsiColors.GRAY + cell + AnsiColors.RESET;
                 } else if (cell == shipChar) {
-                    // Wyświetlamy statek – jeśli statki są do pokazania
                     if (showShips) {
                         output = AnsiColors.GREEN + cell + AnsiColors.RESET;
                     } else {
-                        // Jeśli nie pokazujemy statków, zamiast tego pokazujemy wodę
+                        // Jeśli statki nie mają być pokazane, zamiast nich pokazujemy wodę.
                         output = AnsiColors.BLUE + waterChar + AnsiColors.RESET;
                     }
                 } else if (cell == hitChar) {
@@ -63,10 +70,8 @@ public class ConsoleView {
                 } else if (cell == missChar) {
                     output = AnsiColors.YELLOW + cell + AnsiColors.RESET;
                 } else {
-                    // Domyślny kolor, jeśli nie obsłużono innego przypadku
                     output = cell + "";
                 }
-
                 System.out.print(output + " ");
             }
             System.out.println();
