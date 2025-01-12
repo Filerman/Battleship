@@ -16,7 +16,7 @@ public class GameController {
     // Licznik rund (ile łącznie wykonano ruchów)
     private int roundCount;
 
-    // Pancerze
+    // Pancerze – tokeny pancerza na gracza
     private int armorTokensPlayer1 = 2;
     private int armorTokensPlayer2 = 2;
 
@@ -29,6 +29,9 @@ public class GameController {
         this.roundCount = 0;
     }
 
+    /**
+     * Zwraca statystyki gry (jeśli jest już utworzony obiekt game).
+     */
     public GameStatistics getStatistics() {
         if (game != null) {
             return game.getStatistics();
@@ -41,7 +44,6 @@ public class GameController {
      */
     public void setupGame() {
         // Próbujemy wczytać statystyki z pliku przed uruchomieniem nowej gry
-        // (wczytywanie do tymczasowego obiektu)
         try {
             GameStatistics tempStats = new GameStatistics();
             tempStats.loadFromFile("stats.txt");
@@ -59,7 +61,7 @@ public class GameController {
         Board boardForUser;
         Board boardForAI;
 
-        // 1. Ustalamy, czy chcemy standard czy interaktywny builder
+        // Czy gracz chce konfigurować planszę interaktywnie
         boolean useInteractiveBoard = false;
         if (choice == 1 || choice == 2) {
             view.displayMessage("Czy chcesz skonfigurować planszę interaktywnie? (tak/nie)");
@@ -67,10 +69,10 @@ public class GameController {
             useInteractiveBoard = interactiveConfig.equalsIgnoreCase("tak");
         }
 
-        // Tworzymy dwie plansze
+        // Tworzymy dwie plansze (dla p1 i p2) w zależności od wyboru
         if (useInteractiveBoard) {
             boardForUser = configureBoardInteractively();
-            // Druga (np. AI) – ta sama wielkość i znaki
+            // Druga plansza (np. AI) – ta sama wielkość i symbole
             boardForAI = new Board(
                     boardForUser.getSize(),
                     boardForUser.getWaterChar(),
@@ -79,14 +81,13 @@ public class GameController {
                     boardForUser.getMissChar()
             );
         } else {
-            // Standard
             if (choice == 3) {
-                // Komputer vs Komputer
+                // AI vs AI
                 Board std = configureStandardBoard();
                 boardForUser = new Board(std.getSize(), std.getWaterChar(), std.getShipChar(), std.getHitChar(), std.getMissChar());
                 boardForAI = new Board(std.getSize(), std.getWaterChar(), std.getShipChar(), std.getHitChar(), std.getMissChar());
             } else {
-                // PVP lub PVE – też standard
+                // PVP lub PVE
                 boardForUser = configureStandardBoard();
                 boardForAI = new Board(boardForUser.getSize(),
                         boardForUser.getWaterChar(),
@@ -96,14 +97,14 @@ public class GameController {
             }
         }
 
-        // 2. Ustalamy, ile i jakie statki – zapytajmy gracza
-        int[] shipSizes = askForShipSizes(); // nowa metoda
+        // Wczytujemy rozmiary statków od gracza (lub domyślne)
+        int[] shipSizes = askForShipSizes();
 
-        // 3. Tworzymy player1 i player2
+        // Tworzymy graczy (p1 i p2) w zależności od wybranego trybu
         Player player1, player2;
         switch (choice) {
             case 1 -> {
-                // PVP
+                // Gracz vs Gracz
                 view.displayMessage("Podaj nazwę Gracza 1:");
                 String p1Name = scanner.nextLine();
                 view.displayMessage("Podaj nazwę Gracza 2:");
@@ -111,7 +112,7 @@ public class GameController {
 
                 player1 = new Player(
                         p1Name,
-                        DifficultyLevel.EASY, // placeholder
+                        DifficultyLevel.EASY, // placeholder – to i tak gracz ludzki
                         boardForUser.getSize(),
                         boardForUser.getWaterChar(),
                         boardForUser.getShipChar(),
@@ -168,7 +169,7 @@ public class GameController {
                 armorTokensPlayer2 = 2;
             }
             case 3 -> {
-                // AI vs AI
+                // Komputer vs Komputer (AI vs AI)
                 DifficultyLevel ai1Diff = chooseAiDifficulty("Ustaw trudność dla AI1: 1. EASY, 2. MEDIUM, 3. HARD");
                 DifficultyLevel ai2Diff = chooseAiDifficulty("Ustaw trudność dla AI2: 1. EASY, 2. MEDIUM, 3. HARD");
 
@@ -208,16 +209,23 @@ public class GameController {
             }
         }
 
-        // 4. Tworzymy obiekt gry
-        this.game = new BattleshipGame(player1, player2);
-        // Wczytujemy statystyki do nowego obiektu
+        // Tworzymy lub pobieramy instancję Singletona BattleshipGame
+        this.game = BattleshipGame.getInstance(player1, player2);
+
+        // Wczytujemy statystyki do singletona
         try {
             this.game.getStatistics().loadFromFile("stats.txt");
         } catch (IOException e) {
             view.displayMessage("Brak pliku statystyk albo błąd wczytywania.");
         }
 
-        // 5. Rozpoczęcie rozgrywki z uwzględnieniem shipSizes
+        // Sprawdzamy, czy gracz-ludzki ma >= 3 wygranych i czy chce zmienić kolor statków
+        checkAndOfferColorChange(player1);
+        if (!(player2 instanceof AIPlayer)) {
+            checkAndOfferColorChange(player2);
+        }
+
+        // Start właściwej rozgrywki
         startGame(shipSizes);
     }
 
@@ -232,30 +240,35 @@ public class GameController {
         placeShipsForPlayer(p1, shipSizes);
         placeShipsForPlayer(p2, shipSizes);
 
-        // Główna pętla
+        // Zwiększamy licznik gier o 1
         game.getStatistics().incrementTotalGames();
+
         Player currentPlayer = p1;
         Player opponent = p2;
 
+        // Główna pętla tury
         while (true) {
             roundCount++;
             view.printBoards(p1, p2, determineGameMode(p1, p2));
 
             if (currentPlayer instanceof AIPlayer ai) {
+                // Ruch AI
                 view.displayMessage("Tura gracza AI: " + currentPlayer.getName());
                 MoveCommand cmd = ai.makeMove();
                 currentPlayer.executeCommand(cmd);
             } else {
+                // Ruch zwykłego gracza
                 view.displayMessage("Tura gracza: " + currentPlayer.getName());
                 Position shot = getShotFromUserOrUndo(currentPlayer, opponent.getBoard());
                 if (shot == null) {
-                    // cofnięcie
+                    // Cofnięcie ruchu
                     continue;
                 }
                 Command moveCommand = new MoveCommand(opponent.getBoard(), shot);
                 currentPlayer.executeCommand(moveCommand);
             }
 
+            // Sprawdzamy warunek zwycięstwa
             if (checkVictoryCondition(currentPlayer, opponent)) {
                 break;
             }
@@ -278,7 +291,7 @@ public class GameController {
             opponent = tmp;
         }
 
-        // Zapis statystyk
+        // Zapis statystyk po zakończeniu gry
         try {
             game.getStatistics().saveToFile("stats.txt");
         } catch (IOException e) {
@@ -288,11 +301,15 @@ public class GameController {
         // Wyświetlamy końcowy ranking i historię
         view.displayMessage(game.getStatistics().getRanking());
         view.displayMessage(game.getStatistics().getGameHistory());
+
+        // Resetujemy instancję Singletona, by umożliwić nową grę "od zera"
+        BattleshipGame.resetInstance();
     }
 
     /**
-     * Wczytuje od gracza liczbę statków i ich rozmiary.
-     * Jeśli gracz wybierze "domyślne", zwracamy np. [4,3].
+     * Metoda wczytująca rozmiary statków od gracza.
+     * Jeśli gracz wybierze "tak" – mamy domyślne [4, 3].
+     * W przeciwnym razie pyta, ile statków i o rozmiary każdego z nich.
      */
     private int[] askForShipSizes() {
         view.displayMessage("Czy chcesz użyć domyślnej listy statków (4 i 3)? (tak/nie)");
@@ -300,22 +317,62 @@ public class GameController {
         if (ans.equalsIgnoreCase("tak")) {
             return defaultShipSizes;
         } else {
-            // Niestandardowe
             view.displayMessage("Ile statków chcesz rozmieszczać?");
             int count = readInt();
             int[] sizes = new int[count];
             for (int i = 0; i < count; i++) {
-                view.displayMessage("Podaj rozmiar statku nr " + (i+1) + ":");
+                view.displayMessage("Podaj rozmiar statku nr " + (i + 1) + ":");
                 sizes[i] = readInt();
             }
             return sizes;
         }
     }
 
-    // -------------
-    // Metody do rozgrywki
-    // -------------
+    /**
+     * Sprawdza, czy dany gracz-ludzki ma >= 3 wygranych;
+     * jeśli tak – może otrzymać nagrodę zmiany symbolu statków.
+     */
+    private void checkAndOfferColorChange(Player player) {
+        if (player instanceof AIPlayer) return;  // AI ignorujemy
 
+        // Sprawdzamy liczbę wygranych
+        int wins = this.game.getStatistics().getWinsForPlayer(player.getName());
+        if (wins >= 3) {
+            // Oferujemy zmianę symbolu
+            view.displayMessage("Graczu " + player.getName()
+                    + ", wygrałeś już " + wins + " gier! Możesz zmienić symbol statków. Zrobić to? (tak/nie)");
+            String ans = scanner.nextLine().trim();
+            if (ans.equalsIgnoreCase("tak")) {
+                view.displayMessage("Podaj nowy symbol dla statków (np. 'S'): ");
+                String line = scanner.nextLine().trim();
+                char newShipChar = line.isEmpty() ? 'S' : line.charAt(0);
+
+                Board b = player.getBoard();
+                // Zmieniamy wszystkie dotychczasowe statki (i w tablicy grid) na nowy znak
+                for (IShip s : b.getShips()) {
+                    for (Position pos : s.getPositions()) {
+                        b.getGrid()[pos.getRow()][pos.getCol()] = newShipChar;
+                    }
+                }
+                // Zmieniamy też docelowy 'shipChar' w Board (np. przez reflection lub setter)
+                try {
+                    java.lang.reflect.Field f =
+                            Board.class.getDeclaredField("shipChar");
+                    f.setAccessible(true);
+                    f.set(b, newShipChar);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                view.displayMessage("Zmieniono symbol statku na: " + newShipChar);
+            }
+        }
+    }
+
+    /**
+     * Sprawdza, czy przeciwnik ma wszystkie statki zatopione.
+     * Jeśli tak, aktualny gracz wygrywa.
+     */
     private boolean checkVictoryCondition(Player currentPlayer, Player opponent) {
         if (opponent.getBoard().allShipsSunk()) {
             view.displayMessage("Wszystkie statki zatopione! Wygrywa: " + currentPlayer.getName());
@@ -324,22 +381,25 @@ public class GameController {
                     new GameHistoryEntry(determineGameMode(game.getPlayer1(), game.getPlayer2()),
                             currentPlayer.getName(), roundCount)
             );
+
+            // Osiągnięcie: Zwycięstwo w 10 ruchach
             if (roundCount <= 10) {
                 unlockAchievement("Zwycięstwo w 10 ruchach!");
+            }
+
+            // Sprawdzamy, czy odblokować achievement "3 wins - color change"
+            int winsNow = game.getStatistics().getWinsForPlayer(currentPlayer.getName());
+            if (winsNow >= 3) {
+                unlockAchievement("3 wins - color change");
             }
             return true;
         }
         return false;
     }
 
-    private String determineGameMode(Player p1, Player p2) {
-        boolean p1AI = (p1 instanceof AIPlayer);
-        boolean p2AI = (p2 instanceof AIPlayer);
-        if (!p1AI && !p2AI) return "PVP";
-        if (p1AI && p2AI)   return "AI vs AI";
-        return "PVE";
-    }
-
+    /**
+     * Odblokowuje osiągnięcie (jeśli jeszcze nie jest odblokowane).
+     */
     private void unlockAchievement(String achievementDescription) {
         for (Achievement a : game.getAchievements()) {
             if (a.getDescription().equals(achievementDescription) && !a.isUnlocked()) {
@@ -349,6 +409,21 @@ public class GameController {
         }
     }
 
+    /**
+     * Określa tryb gry (PVP, PVE, AI vs AI).
+     */
+    private String determineGameMode(Player p1, Player p2) {
+        boolean p1AI = (p1 instanceof AIPlayer);
+        boolean p2AI = (p2 instanceof AIPlayer);
+        if (!p1AI && !p2AI) return "PVP";
+        if (p1AI && p2AI)   return "AI vs AI";
+        return "PVE";
+    }
+
+    /**
+     * Metoda do wczytywania ruchu od gracza.
+     * Zwraca pozycję albo null, jeśli gracz wpisał 'undo' i cofnięto ruch.
+     */
     private Position getShotFromUserOrUndo(Player currentPlayer, Board opponentBoard) {
         while (true) {
             view.displayMessage("Podaj pozycję do strzału (x,y) albo 'undo': ");
@@ -376,10 +451,9 @@ public class GameController {
         }
     }
 
-    // -------------
-    // Rozmieszczanie statków
-    // -------------
-
+    /**
+     * Rozmieszcza statki dla gracza (ręcznie lub automatycznie w zależności od rodzaju gracza).
+     */
     private void placeShipsForPlayer(Player player, int[] shipSizes) {
         if (player instanceof AIPlayer) {
             view.displayMessage("Rozmieszczanie statków (AI): " + player.getName());
@@ -391,6 +465,9 @@ public class GameController {
         }
     }
 
+    /**
+     * Ręczne rozmieszczanie statków przez gracza.
+     */
     private void placeShipsManually(Player player, int[] shipSizes) {
         Board board = player.getBoard();
 
@@ -439,7 +516,7 @@ public class GameController {
 
                 placed = board.placeShip(ship);
                 if (!placed) {
-                    view.displayMessage("Nie można umieścić statku w podanym miejscu.");
+                    view.displayMessage("Nie można umieścić statku w podanym miejscu (zajęte / poza planszą).");
                 } else {
                     // Pytanie o pancerz
                     if (myArmorTokens > 0) {
@@ -457,14 +534,20 @@ public class GameController {
             }
         }
 
-        if (player == game.getPlayer1()) armorTokensPlayer1 = myArmorTokens;
-        else armorTokensPlayer2 = myArmorTokens;
+        if (player == game.getPlayer1()) {
+            armorTokensPlayer1 = myArmorTokens;
+        } else {
+            armorTokensPlayer2 = myArmorTokens;
+        }
 
         view.printBoard(board, true);
-        view.displayMessage("Rozmieszczanie zakończone. (Enter)");
+        view.displayMessage("Rozmieszczanie zakończone. (Enter, aby kontynuować)");
         scanner.nextLine();
     }
 
+    /**
+     * Automatyczne rozmieszczanie statków dla AI (lub symulacji).
+     */
     private void placeShipsStandard(Player player, int[] shipSizes) {
         Board board = player.getBoard();
         int myArmorTokens = (player == game.getPlayer1()) ? armorTokensPlayer1 : armorTokensPlayer2;
@@ -494,21 +577,22 @@ public class GameController {
             }
         }
 
-        if (player == game.getPlayer1()) armorTokensPlayer1 = myArmorTokens;
-        else armorTokensPlayer2 = myArmorTokens;
+        if (player == game.getPlayer1()) {
+            armorTokensPlayer1 = myArmorTokens;
+        } else {
+            armorTokensPlayer2 = myArmorTokens;
+        }
     }
 
+    /**
+     * Sprawdza, czy wiersz i kolumna znajdują się w obszarze planszy.
+     */
     private boolean checkWithinBoard(Board board, int row, int col) {
         return row >= 0 && row < board.getSize() && col >= 0 && col < board.getSize();
     }
 
-    // -------------
-    // Metody do budowania planszy
-    // -------------
-
     /**
-     * Konfigurowanie w trybie interaktywnym.
-     * Możesz ewentualnie pominąć część pytań i dać stałe parametry.
+     * Metoda do konfiguracji planszy w trybie interaktywnym.
      */
     private Board configureBoardInteractively() {
         view.displayMessage("Podaj rozmiar planszy (np. 10):");
@@ -539,8 +623,7 @@ public class GameController {
     }
 
     /**
-     * Konfigurowanie w trybie standardowym.
-     * Stały rozmiar 10 i znaki . S X O (lub dowolnie).
+     * Konfiguracja planszy w trybie standardowym (ustawienia domyślne).
      */
     private Board configureStandardBoard() {
         BoardBuilderInterface builder = BoardBuilder.builder();
@@ -548,9 +631,12 @@ public class GameController {
         return director.constructStandardBoard();
     }
 
+    /**
+     * Zbiera listę kamieni od użytkownika w formacie x,y.
+     */
     private List<Stone> collectStones() {
         List<Stone> stones = new ArrayList<>();
-        view.displayMessage("Podaj pozycje kamieni x,y lub wpisz 'koniec':");
+        view.displayMessage("Podaj pozycje kamieni w formacie x,y lub wpisz 'koniec':");
         while (true) {
             String input = scanner.nextLine().trim();
             if (input.equalsIgnoreCase("koniec")) {
@@ -567,7 +653,7 @@ public class GameController {
     }
 
     /**
-     * Metoda do czytania int z linii.
+     * Metoda do wczytania liczby całkowitej z linii wejścia.
      */
     private int readInt() {
         while (true) {
@@ -580,7 +666,7 @@ public class GameController {
     }
 
     /**
-     * Metoda do parsowania formatu x,y w Position.
+     * Metoda do parsowania formatu x,y w obiekt Position.
      */
     private Position parsePosition(String input) {
         String[] parts = input.split(",");
@@ -594,10 +680,9 @@ public class GameController {
         }
     }
 
-    // -------------
-    // Metody do AI
-    // -------------
-
+    /**
+     * Wybór poziomu trudności AI (metoda przeciążona, jeśli chcemy customowy komunikat).
+     */
     private DifficultyLevel chooseAiDifficulty() {
         return chooseAiDifficulty("Wybierz poziom trudności AI: 1. EASY, 2. MEDIUM, 3. HARD");
     }
@@ -616,6 +701,9 @@ public class GameController {
         };
     }
 
+    /**
+     * Wybór strategii AI w zależności od poziomu trudności.
+     */
     private AIStrategy selectAIStrategy(DifficultyLevel difficulty) {
         return switch (difficulty) {
             case EASY -> new RandomStrategy();

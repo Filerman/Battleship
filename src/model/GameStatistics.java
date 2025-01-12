@@ -100,7 +100,6 @@ public class GameStatistics {
                 } else if (line.startsWith("GAMEHIST:")) {
                     // Parsujemy historię
                     String histText = line.substring("GAMEHIST:".length());
-                    // Można spróbować odczytać z toString():
                     GameHistoryEntry ghe = GameHistoryEntry.fromString(histText);
                     if (ghe != null) {
                         gameHistory.add(ghe);
@@ -108,5 +107,12 @@ public class GameStatistics {
                 }
             }
         }
+    }
+
+    /**
+     * Zwraca liczbę wygranych dla danego gracza.
+     */
+    public int getWinsForPlayer(String playerName) {
+        return winsPerPlayer.getOrDefault(playerName, 0);
     }
 }
