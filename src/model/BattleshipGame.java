@@ -121,4 +121,8 @@ public class BattleshipGame {
         if (c < size-1)  result.add(new Position(r, c + 1));
         return result;
     }
+
+    public boolean undoLastMove(Player player) {
+        return player.undoLastCommand();
+    }
 }

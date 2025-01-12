@@ -31,19 +31,8 @@ public class GameController {
         Player player2 = game.getPlayer2();
 
         // Rozmieszczanie statków dla obu graczy
-        view.displayMessage("Rozmieszczanie statków dla Gracza 1 (" + player1.getName() + ")");
-        if (!player1.isAI()) {
-            placeShipsManually(player1);
-        } else {
-            placeShipsStandard(player1);
-        }
-
-        view.displayMessage("Rozmieszczanie statków dla Gracza 2 (" + player2.getName() + ")");
-        if (!player2.isAI()) {
-            placeShipsManually(player2);
-        } else {
-            placeShipsStandard(player2);
-        }
+        placeShipsForPlayer(player1);
+        placeShipsForPlayer(player2);
 
         // Główna pętla gry
         game.getStatistics().incrementTotalGames();
@@ -54,35 +43,27 @@ public class GameController {
             roundCount++;
             view.printBoards(player1, player2);
 
-            view.displayMessage("Tura gracza: " + currentPlayer.getName());
-
-            Board opponentBoard = opponent.getBoard();
-            Position shot;
-
+            // Informacja o turze i możliwość cofania
             if (!currentPlayer.isAI()) {
-                // Ruch gracza
-                shot = getShotFromUser();
-            } else {
-                // Ruch AI
-                shot = game.getAiShot(currentPlayer, opponentBoard);
-                view.displayMessage("AI wybrało strzał: " + shot);
+                view.displayMessage("Tura gracza: " + currentPlayer.getName());
+                view.displayMessage("Wpisz 'undo', aby cofnąć ruch, lub naciśnij Enter, aby kontynuować.");
+                String input = scanner.nextLine();
+                if (input.equalsIgnoreCase("undo")) {
+                    if (currentPlayer.undoLastCommand()) {
+                        view.displayMessage("Cofnięto ostatni ruch.");
+                        continue; // Wraca do początku tury
+                    } else {
+                        view.displayMessage("Brak ruchów do cofnięcia.");
+                        continue; // Wraca do początku tury
+                    }
+                }
             }
 
-            boolean hit = opponentBoard.shoot(shot);
-
-            // Sprawdzanie osiągnięć
-            checkAchievementsHitOrSunk(opponentBoard);
+            // Wykonanie ruchu
+            executePlayerTurn(currentPlayer, opponent);
 
             // Sprawdzanie warunku zwycięstwa
-            if (opponentBoard.allShipsSunk()) {
-                view.displayMessage("Wszystkie statki zatopione! Wygrywa: " + currentPlayer.getName());
-                game.getStatistics().addWinForPlayer(currentPlayer.getName());
-                game.getStatistics().addGameHistoryEntry(
-                        new GameHistoryEntry(determineGameMode(player1, player2), currentPlayer.getName(), roundCount)
-                );
-                if (roundCount <= 10) {
-                    unlockAchievement("Zwycięstwo w 10 ruchach!");
-                }
+            if (checkVictoryCondition(currentPlayer, opponent)) {
                 break;
             }
 
@@ -97,12 +78,62 @@ public class GameController {
         view.displayMessage(game.getStatistics().getGameHistory());
     }
 
+    private void placeShipsForPlayer(Player player) {
+        if (!player.isAI()) {
+            view.displayMessage("Rozmieszczanie statków dla Gracza (" + player.getName() + ")");
+            placeShipsManually(player);
+        } else {
+            view.displayMessage("Rozmieszczanie statków dla Komputera (" + player.getName() + ")");
+            placeShipsStandard(player);
+        }
+    }
+
+    private void executePlayerTurn(Player currentPlayer, Player opponent) {
+        Position shot;
+        Board opponentBoard = opponent.getBoard();
+
+        if (!currentPlayer.isAI()) {
+            // Ruch gracza
+            shot = getShotFromUser();
+        } else {
+            // Ruch AI
+            shot = game.getAiShot(currentPlayer, opponentBoard);
+            view.displayMessage("AI wybrało strzał: " + shot);
+        }
+
+        // Rejestracja i wykonanie strzału jako polecenia
+        Command moveCommand = new MoveCommand(opponentBoard, shot);
+        currentPlayer.executeCommand(moveCommand);
+
+        // Informacja o wyniku strzału
+        char cellState = opponentBoard.getGrid()[shot.getRow()][shot.getCol()];
+        if (cellState == opponentBoard.getHitChar()) {
+            view.displayMessage("Trafiony!");
+        } else if (cellState == opponentBoard.getMissChar()) {
+            view.displayMessage("Pudło.");
+        }
+    }
+
+    private boolean checkVictoryCondition(Player currentPlayer, Player opponent) {
+        if (opponent.getBoard().allShipsSunk()) {
+            view.displayMessage("Wszystkie statki zatopione! Wygrywa: " + currentPlayer.getName());
+            game.getStatistics().addWinForPlayer(currentPlayer.getName());
+            game.getStatistics().addGameHistoryEntry(
+                    new GameHistoryEntry(determineGameMode(game.getPlayer1(), game.getPlayer2()), currentPlayer.getName(), roundCount)
+            );
+            if (roundCount <= 10) {
+                unlockAchievement("Zwycięstwo w 10 ruchach!");
+            }
+            return true;
+        }
+        return false;
+    }
     /**
      * Ręczne rozmieszczanie statków przez gracza.
      */
     private void placeShipsManually(Player player) {
         Board board = player.getBoard();
-        int[] shipSizes = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+        int[] shipSizes = {4};
 
         for (int size : shipSizes) {
             boolean placed = false;

@@ -39,16 +39,51 @@ public class Main {
                 view.displayMessage("Podaj nazwę Gracza 1:");
                 String playerName = scanner.next();
                 DifficultyLevel aiDifficulty = chooseAiDifficulty(view, scanner, "Wybierz poziom trudności AI: 1. EASY, 2. MEDIUM, 3. HARD");
+
+                // Stwórz gracza dla gracza 1
                 player1 = new Player(playerName, false, DifficultyLevel.EASY, boardSize, waterChar, shipChar, hitChar, missChar);
-                player2 = new Player("Komputer", true, aiDifficulty, boardSize, waterChar, shipChar, hitChar, missChar);
+
+                // Ustaw strategię dla gracza AI
+                AIStrategy strategy;
+                if (aiDifficulty == DifficultyLevel.EASY) {
+                    strategy = new RandomStrategy(); // Losowa strategia
+                } else if (aiDifficulty == DifficultyLevel.MEDIUM) {
+                    strategy = new HuntStrategy(); // Strategia "Hunt"
+                } else {
+                    strategy = new SystematicStrategy(); // Systematyczna strategia
+                }
+
+                // Stwórz AIPlayer z odpowiednią strategią
+                player2 = new AIPlayer("Komputer", aiDifficulty, boardSize, waterChar, shipChar, hitChar, missChar, strategy);
                 break;
 
             case 3: // Komputer vs Komputer (symulacja)
                 DifficultyLevel ai1Difficulty = chooseAiDifficulty(view, scanner, "Ustaw trudność dla AI1: 1. EASY, 2. MEDIUM, 3. HARD");
                 DifficultyLevel ai2Difficulty = chooseAiDifficulty(view, scanner, "Ustaw trudność dla AI2: 1. EASY, 2. MEDIUM, 3. HARD");
 
-                player1 = new Player("AI1", true, ai1Difficulty, boardSize, waterChar, shipChar, hitChar, missChar);
-                player2 = new Player("AI2", true, ai2Difficulty, boardSize, waterChar, shipChar, hitChar, missChar);
+                // Ustaw strategie dla obu graczy AI
+                AIStrategy ai1Strategy;
+                AIStrategy ai2Strategy;
+
+                if (ai1Difficulty == DifficultyLevel.EASY) {
+                    ai1Strategy = new RandomStrategy();
+                } else if (ai1Difficulty == DifficultyLevel.MEDIUM) {
+                    ai1Strategy = new HuntStrategy();
+                } else {
+                    ai1Strategy = new SystematicStrategy();
+                }
+
+                if (ai2Difficulty == DifficultyLevel.EASY) {
+                    ai2Strategy = new RandomStrategy();
+                } else if (ai2Difficulty == DifficultyLevel.MEDIUM) {
+                    ai2Strategy = new HuntStrategy();
+                } else {
+                    ai2Strategy = new SystematicStrategy();
+                }
+
+                // Tworzenie AIPlayer dla obu graczy
+                player1 = new AIPlayer("AI1", ai1Difficulty, boardSize, waterChar, shipChar, hitChar, missChar, ai1Strategy);
+                player2 = new AIPlayer("AI2", ai2Difficulty, boardSize, waterChar, shipChar, hitChar, missChar, ai2Strategy);
                 break;
 
             default:
@@ -56,6 +91,7 @@ public class Main {
                 System.exit(0);
         }
 
+        // Rozpoczęcie gry
         BattleshipGame game = new BattleshipGame(player1, player2);
         GameController controller = new GameController(game, view);
         controller.startGame();
