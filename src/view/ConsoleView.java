@@ -33,41 +33,35 @@ public class ConsoleView {
     /**
      * Wyświetla pojedynczą planszę z użyciem kolorów.
      */
+    // mozna dodac kolorowanie planszy
     public void printBoard(Board board, boolean showShips) {
         int size = board.getSize();
+        char[][] grid = board.getGrid();
+
         // Wypisanie nagłówka kolumn z wyrównaniem
-        System.out.print(String.format("%3s", ""));
+        System.out.print("    "); // Puste miejsce na nagłówek wierszy
         for (int c = 0; c < size; c++) {
-            System.out.print(String.format("%3d", c));
+            System.out.print(String.format("%4d", c)); // Wyświetlenie numerów kolumn z odstępem 4
         }
         System.out.println();
 
-        // Wypisanie wierszy
+        // Wypisanie wierszy planszy
         for (int r = 0; r < size; r++) {
-            System.out.print(String.format("%3d", r));
+            System.out.print(String.format("%3d ", r)); // Numer wiersza wyrównany do prawej i dodatkowa spacja
             for (int c = 0; c < size; c++) {
-                char cell = board.getGrid()[r][c];
-                // Jeśli nie chcemy pokazywać statków, zamieniamy 'S' na znak wody
+                char cell = grid[r][c];
+
+                // Ukrywanie statków, jeśli showShips == false
                 if (!showShips && cell == board.getShipChar()) {
                     cell = board.getWaterChar();
                 }
-                String output;
-                if (cell == board.getWaterChar()) {
-                    output = AnsiColors.BLUE + cell + AnsiColors.RESET;
-                } else if (cell == 'K') {
-                    output = AnsiColors.GRAY + cell + AnsiColors.RESET;
-                } else if (cell == board.getShipChar()) {
-                    output = AnsiColors.GREEN + cell + AnsiColors.RESET;
-                } else if (cell == board.getHitChar()) {
-                    output = AnsiColors.RED + cell + AnsiColors.RESET;
-                } else if (cell == board.getMissChar()) {
-                    output = AnsiColors.YELLOW + cell + AnsiColors.RESET;
-                } else {
-                    output = String.valueOf(cell);
-                }
-                System.out.print(String.format("%3s", output));
+
+                // Wyświetlenie każdej komórki z odstępem 4
+                System.out.print(String.format("%4s", cell));
             }
-            System.out.println();
+            System.out.println(); // Nowa linia po każdym wierszu
         }
     }
+
+
 }

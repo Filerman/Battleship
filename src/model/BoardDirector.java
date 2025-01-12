@@ -1,59 +1,42 @@
 package model;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
+/**
+ * Klasa Director odpowiedzialna za kierowanie budową obiektów Board.
+ */
 public class BoardDirector {
-    private BoardBuilderInterface builder;
-    private Scanner scanner;
+    private final BoardBuilderInterface builder;
 
-    public BoardDirector(BoardBuilderInterface builder, Scanner scanner) {
+    public BoardDirector(BoardBuilderInterface builder) {
         this.builder = builder;
-        this.scanner = scanner;
     }
 
-    /**
-     * Interaktywna budowa planszy – użytkownik podaje rozmiar oraz dodaje kamienie.
-     */
-    public Board constructInteractively() {
+    public Board constructBoard(int size, List<Stone> stones, char waterChar, char shipChar, char hitChar, char missChar) {
         builder.reset()
-                .setWaterChar('.')
-                .setShipChar('S')
-                .setHitChar('X')
-                .setMissChar('O');
-        System.out.print("Podaj rozmiar planszy: ");
-        int size = Integer.parseInt(scanner.nextLine().trim());
-        builder.setSize(size);
+                .setSize(size)
+                .setWaterChar(waterChar)
+                .setShipChar(shipChar)
+                .setHitChar(hitChar)
+                .setMissChar(missChar);
 
-        while (true) {
-            System.out.print("Czy chcesz dodać kamień? (tak/nie): ");
-            String answer = scanner.nextLine().trim();
-            if (!answer.equalsIgnoreCase("tak")) {
-                break;
+        if (stones != null) {
+            for (Stone stone : stones) {
+                builder.addStone(stone.getPositions());
             }
-            System.out.print("Podaj wiersz (0-" + (size - 1) + "): ");
-            int row = Integer.parseInt(scanner.nextLine().trim());
-            System.out.print("Podaj kolumnę (0-" + (size - 1) + "): ");
-            int col = Integer.parseInt(scanner.nextLine().trim());
-            List<Position> positions = new ArrayList<>();
-            positions.add(new Position(row, col));
-            builder.addStone(positions);
-            System.out.println("Kamień dodany na pozycji (" + row + ", " + col + ").");
         }
+
         return builder.build();
     }
 
-    /**
-     * Buduje standardową planszę bez kamieni.
-     */
-    public Board constructStandardBoardWithoutStones() {
-        builder.reset()
+
+    public Board constructStandardBoard() {
+        return builder.reset()
                 .setSize(10)
                 .setWaterChar('.')
                 .setShipChar('S')
                 .setHitChar('X')
-                .setMissChar('O');
-        return builder.build();
+                .setMissChar('O')
+                .build();
     }
 }
