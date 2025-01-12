@@ -3,6 +3,8 @@ package controller;
 import model.*;
 import view.ConsoleView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 /**
@@ -24,15 +26,29 @@ public class GameController {
     }
 
     /**
-     * Rozpoczęcie rozgrywki: rozmieszczenie statków, następnie tury strzałów.
+     * Rozpoczęcie rozgrywki: najpierw interaktywnie dodajemy kamienie (dla gracza, jeżeli nie jest AI),
+     * następnie rozmieszczamy statki, a następnie tury strzałów.
      */
     public void startGame() {
         Player player1 = game.getPlayer1();
         Player player2 = game.getPlayer2();
 
-        // Rozmieszczanie statków dla obu graczy
+        // Dla gracza (użytkownika) umożliwiamy interaktywnie dodanie kamieni na jego planszę.
+        if (!player1.isAI()) {
+            view.displayMessage("Czy chcesz dodać kamienie na Twoją planszę? (tak/nie)");
+            String input = scanner.nextLine();
+            if (input.equalsIgnoreCase("tak")) {
+                placeStonesManually(player1);
+            }
+        }
+        // Dla gracza AI (komputera) możemy użyć domyślnego układu (builder już ustawił kamienie).
+
+        // Następnie rozmieszczamy statki
         placeShipsForPlayer(player1);
         placeShipsForPlayer(player2);
+
+        // Po rozmieszczeniu statków czyścimy bufor wejścia
+        scanner.nextLine();
 
         // Główna pętla gry
         game.getStatistics().incrementTotalGames();
@@ -41,9 +57,8 @@ public class GameController {
 
         while (true) {
             roundCount++;
-            view.printBoards(player1, player2);
+            view.printBoards(player1, player2, determineGameMode(player1, player2));
 
-            // Informacja o turze i możliwość cofania
             if (!currentPlayer.isAI()) {
                 view.displayMessage("Tura gracza: " + currentPlayer.getName());
                 view.displayMessage("Wpisz 'undo', aby cofnąć ruch, lub naciśnij Enter, aby kontynuować.");
@@ -51,40 +66,150 @@ public class GameController {
                 if (input.equalsIgnoreCase("undo")) {
                     if (currentPlayer.undoLastCommand()) {
                         view.displayMessage("Cofnięto ostatni ruch.");
-                        continue; // Wraca do początku tury
+                        continue;
                     } else {
                         view.displayMessage("Brak ruchów do cofnięcia.");
-                        continue; // Wraca do początku tury
+                        continue;
                     }
                 }
             }
 
-            // Wykonanie ruchu
             executePlayerTurn(currentPlayer, opponent);
 
-            // Sprawdzanie warunku zwycięstwa
             if (checkVictoryCondition(currentPlayer, opponent)) {
                 break;
             }
 
-            // Zmiana kolejki
+            // W trybie AI vs AI czekamy na Enter, w innych automatycznie 2 sekundy
+            if (currentPlayer.isAI() && opponent.isAI()) {
+                view.displayMessage("Naciśnij Enter, aby przejść do kolejnego ruchu...");
+                scanner.nextLine();
+            } else {
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
             Player temp = currentPlayer;
             currentPlayer = opponent;
             opponent = temp;
         }
 
-        // Wyświetlanie wyników gry
         view.displayMessage(game.getStatistics().getRanking());
         view.displayMessage(game.getStatistics().getGameHistory());
+    }
+
+    /**
+     * Metoda pozwalająca graczowi interaktywnie dodać kamienie na planszę.
+     */
+    private void placeStonesManually(Player player) {
+        Board board = player.getBoard();
+        boolean adding = true;
+        while (adding) {
+            view.displayMessage("Dodawanie kamienia:");
+            view.displayMessage("Podaj wiersz (0-" + (board.getSize() - 1) + "): ");
+            int row = readInt();
+            view.displayMessage("Podaj kolumnę (0-" + (board.getSize() - 1) + "): ");
+            int col = readInt();
+
+            // Tworzymy kamień zajmujący jedno pole – można rozszerzyć o obsługę kamieni wielopolowych
+            List<Position> positions = new ArrayList<>();
+            positions.add(new Position(row, col));
+            boolean success = board.placeStone(new Stone(positions));
+            if (success) {
+                view.displayMessage("Kamień dodany na pozycji (" + row + ", " + col + ").");
+                view.printBoard(board, true);
+            } else {
+                view.displayMessage("Nie można dodać kamienia w tym miejscu (pole zajęte lub poza planszą).");
+            }
+
+            view.displayMessage("Czy chcesz dodać kolejny kamień? (tak/nie)");
+            String answer = scanner.nextLine();
+            if (!answer.equalsIgnoreCase("tak")) {
+                adding = false;
+            }
+        }
     }
 
     private void placeShipsForPlayer(Player player) {
         if (!player.isAI()) {
             view.displayMessage("Rozmieszczanie statków dla Gracza (" + player.getName() + ")");
+            view.printBoard(player.getBoard(), true);
             placeShipsManually(player);
         } else {
             view.displayMessage("Rozmieszczanie statków dla Komputera (" + player.getName() + ")");
             placeShipsStandard(player);
+        }
+    }
+
+    private void placeShipsManually(Player player) {
+        Board board = player.getBoard();
+        int[] shipSizes = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+
+        for (int size : shipSizes) {
+            boolean placed = false;
+            while (!placed) {
+                view.displayMessage("Rozmieszczanie statku o długości " + size);
+                view.printBoard(board, true);
+                view.displayMessage("Podaj wiersz początkowy (0-" + (board.getSize() - 1) + "): ");
+                int startRow = readInt();
+                view.displayMessage("Podaj kolumnę początkową (0-" + (board.getSize() - 1) + "): ");
+                int startCol = readInt();
+                view.displayMessage("Wybierz orientację: 1. Pozioma (h), 2. Pionowa (v)");
+                String orientation = scanner.next().toLowerCase();
+                scanner.nextLine();
+
+                Ship ship = new Ship();
+                boolean validOrientation = true;
+                for (int i = 0; i < size; i++) {
+                    if (orientation.equals("1") || orientation.equals("h")) {
+                        ship.addPosition(new Position(startRow, startCol + i));
+                    } else if (orientation.equals("2") || orientation.equals("v")) {
+                        ship.addPosition(new Position(startRow + i, startCol));
+                    } else {
+                        view.displayMessage("Nieprawidłowa orientacja. Spróbuj ponownie.");
+                        ship.getPositions().clear();
+                        validOrientation = false;
+                        break;
+                    }
+                }
+                if (!validOrientation) {
+                    continue;
+                }
+                placed = board.placeShip(ship);
+                if (!placed) {
+                    view.displayMessage("Nie można umieścić statku w podanym miejscu. Spróbuj ponownie.");
+                }
+            }
+        }
+        view.printBoard(board, true);
+        view.displayMessage("Rozmieszczanie statków zakończone. Naciśnij Enter, aby kontynuować.");
+        scanner.nextLine();
+    }
+
+    private void placeShipsStandard(Player player) {
+        Board board = player.getBoard();
+        int[] shipSizes = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+
+        for (int size : shipSizes) {
+            boolean placed = false;
+            while (!placed) {
+                int row = (int) (Math.random() * board.getSize());
+                int col = (int) (Math.random() * board.getSize());
+                boolean horizontal = Math.random() < 0.5;
+
+                Ship ship = new Ship();
+                for (int i = 0; i < size; i++) {
+                    if (horizontal) {
+                        ship.addPosition(new Position(row, col + i));
+                    } else {
+                        ship.addPosition(new Position(row + i, col));
+                    }
+                }
+                placed = board.placeShip(ship);
+            }
         }
     }
 
@@ -93,19 +218,15 @@ public class GameController {
         Board opponentBoard = opponent.getBoard();
 
         if (!currentPlayer.isAI()) {
-            // Ruch gracza
             shot = getShotFromUser();
         } else {
-            // Ruch AI
             shot = game.getAiShot(currentPlayer, opponentBoard);
-            view.displayMessage("AI wybrało strzał: " + shot);
+            view.displayMessage("AI (" + currentPlayer.getName() + ") wybrało strzał: " + shot);
         }
 
-        // Rejestracja i wykonanie strzału jako polecenia
         Command moveCommand = new MoveCommand(opponentBoard, shot);
         currentPlayer.executeCommand(moveCommand);
 
-        // Informacja o wyniku strzału
         char cellState = opponentBoard.getGrid()[shot.getRow()][shot.getCol()];
         if (cellState == opponentBoard.getHitChar()) {
             view.displayMessage("Trafiony!");
@@ -128,77 +249,7 @@ public class GameController {
         }
         return false;
     }
-    /**
-     * Ręczne rozmieszczanie statków przez gracza.
-     */
-    private void placeShipsManually(Player player) {
-        Board board = player.getBoard();
-        int[] shipSizes = {4};
 
-        for (int size : shipSizes) {
-            boolean placed = false;
-            while (!placed) {
-                view.displayMessage("Rozmieszczanie statku o długości " + size);
-                view.displayMessage("Podaj wiersz początkowy (0-" + (board.getSize() - 1) + "): ");
-                int startRow = readInt();
-                view.displayMessage("Podaj kolumnę początkową (0-" + (board.getSize() - 1) + "): ");
-                int startCol = readInt();
-                view.displayMessage("Wybierz orientację: 1. Pozioma (h), 2. Pionowa (v)");
-                String orientation = scanner.next().toLowerCase();
-
-                Ship ship = new Ship();
-                for (int i = 0; i < size; i++) {
-                    if (orientation.equals("1") || orientation.equals("h")) {
-                        ship.addPosition(new Position(startRow, startCol + i));
-                    } else if (orientation.equals("2") || orientation.equals("v")) {
-                        ship.addPosition(new Position(startRow + i, startCol));
-                    } else {
-                        view.displayMessage("Nieprawidłowa orientacja. Spróbuj ponownie.");
-                        continue;
-                    }
-                }
-
-                placed = board.placeShip(ship);
-                if (!placed) {
-                    view.displayMessage("Nie można umieścić statku w podanym miejscu. Spróbuj ponownie.");
-                }
-            }
-
-            view.printBoard(board, true);
-        }
-    }
-
-    /**
-     * Automatyczne rozmieszczanie statków (dla AI).
-     */
-    private void placeShipsStandard(Player player) {
-        Board board = player.getBoard();
-        int[] shipSizes = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
-
-        for (int size : shipSizes) {
-            boolean placed = false;
-            while (!placed) {
-                int row = (int) (Math.random() * board.getSize());
-                int col = (int) (Math.random() * board.getSize());
-                boolean horizontal = Math.random() < 0.5;
-
-                Ship ship = new Ship();
-                for (int i = 0; i < size; i++) {
-                    if (horizontal) {
-                        ship.addPosition(new Position(row, col + i));
-                    } else {
-                        ship.addPosition(new Position(row + i, col));
-                    }
-                }
-
-                placed = board.placeShip(ship);
-            }
-        }
-    }
-
-    /**
-     * Pobiera współrzędne strzału od gracza.
-     */
     private Position getShotFromUser() {
         view.displayMessage("Podaj wiersz (0-9): ");
         int row = readInt();
@@ -207,9 +258,6 @@ public class GameController {
         return new Position(row, col);
     }
 
-    /**
-     * Wczytuje liczbę całkowitą od użytkownika.
-     */
     private int readInt() {
         while (true) {
             try {
@@ -220,20 +268,6 @@ public class GameController {
         }
     }
 
-    /**
-     * Sprawdza osiągnięcia związane z trafieniami lub zatopieniem statków.
-     */
-    private void checkAchievementsHitOrSunk(Board opponentBoard) {
-        for (Ship s : opponentBoard.getShips()) {
-            if (s.isSunk()) {
-                unlockAchievement("Pierwsze zatopienie!");
-            }
-        }
-    }
-
-    /**
-     * Odblokowuje osiągnięcie o podanej nazwie.
-     */
     private void unlockAchievement(String achievementDescription) {
         for (Achievement a : game.getAchievements()) {
             if (a.getDescription().equals(achievementDescription) && !a.isUnlocked()) {
@@ -243,9 +277,6 @@ public class GameController {
         }
     }
 
-    /**
-     * Określa tryb gry na podstawie flag AI graczy.
-     */
     private String determineGameMode(Player p1, Player p2) {
         if (!p1.isAI() && !p2.isAI()) {
             return "PVP";

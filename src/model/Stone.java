@@ -2,17 +2,11 @@ package model;
 
 import java.util.List;
 
-/**
- * Klasa reprezentująca "kamień" (przeszkodę) na planszy.
- * Kamienie są zawsze niezniszczalne.
- */
 public class Stone {
-    private List<Position> positions; // Pola, które zajmuje kamień (może być wielopolowy)
-    // Usuwamy możliwość zmiany flagi – kamienie są niezniszczalne
-    private final boolean destructible = false;
+    private List<Position> positions;
+    private final boolean destructible = false; // Kamienie są zawsze niezniszczalne
 
-    // Konstruktor pakietowy – wymusza tworzenie przez StoneBuilder
-    Stone(List<Position> positions) {
+    public Stone(List<Position> positions) {
         this.positions = positions;
     }
 

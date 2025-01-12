@@ -12,70 +12,62 @@ public class ConsoleView {
 
     /**
      * Wyświetla dwie plansze obok siebie.
-     * Jeśli obaj gracze są AI, wyświetlamy statki obu graczy.
+     * Dla trybu Gracz vs Komputer i AI vs AI statki AI są ukrywane.
+     * Parametr gameMode (np. "PVP", "PVE", "AI vs AI") może być wykorzystany do dodatkowej logiki.
      */
-    public void printBoards(Player player1, Player player2) {
-        boolean showShipsPlayer1 = true;
-        boolean showShipsPlayer2 = true;
-
-        // Jeśli przynajmniej jeden gracz nie jest AI, stosujemy dotychczasową logikę
-        if (!player1.isAI() || !player2.isAI()) {
-            // Dla gracza ludzkiego lub trybu Gracz vs Gracz – uzywamy oryginalnej logiki:
-            showShipsPlayer1 = !player1.isAI();
-            showShipsPlayer2 = !player2.isAI();
+    public void printBoards(Player player1, Player player2, String gameMode) {
+        // W trybie PVE (Gracz vs Komputer) plansza komputera ma statki ukryte
+        boolean showShipsPlayer1 = !player1.isAI();
+        boolean showShipsPlayer2 = !player2.isAI();
+        if (gameMode.equals("AI vs AI")) {
+            // W trybie AI vs AI wyświetlamy statki obu graczy
+            showShipsPlayer1 = true;
+            showShipsPlayer2 = true;
         }
-
-        System.out.println("------- Plansza " + player1.getName() + " -------");
+        displayMessage("------- Plansza " + player1.getName() + " -------");
         printBoard(player1.getBoard(), showShipsPlayer1);
-        System.out.println("------- Plansza " + player2.getName() + " -------");
+        displayMessage("------- Plansza " + player2.getName() + " -------");
         printBoard(player2.getBoard(), showShipsPlayer2);
     }
 
     /**
-     * Wyświetla jedną planszę w konsoli.
-     * Jeśli showShips=false, to znak statku zamieniamy na wodę.
+     * Wyświetla pojedynczą planszę z użyciem kolorów.
      */
     public void printBoard(Board board, boolean showShips) {
-        char[][] grid = board.getGrid();
-        char waterChar = board.getWaterChar();
-        char shipChar = board.getShipChar();
-        char hitChar = board.getHitChar();
-        char missChar = board.getMissChar();
-
-        // Wypisanie nagłówka kolumn
-        System.out.print("   ");
-        for (int c = 0; c < grid.length; c++) {
-            System.out.print(c + " ");
+        int size = board.getSize();
+        // Wypisanie nagłówka kolumn z wyrównaniem
+        System.out.print(String.format("%3s", ""));
+        for (int c = 0; c < size; c++) {
+            System.out.print(String.format("%3d", c));
         }
         System.out.println();
 
-        for (int r = 0; r < grid.length; r++) {
-            System.out.print(r + "  ");
-            for (int c = 0; c < grid[r].length; c++) {
-                char cell = grid[r][c];
+        // Wypisanie wierszy
+        for (int r = 0; r < size; r++) {
+            System.out.print(String.format("%3d", r));
+            for (int c = 0; c < size; c++) {
+                char cell = board.getGrid()[r][c];
+                // Jeśli nie chcemy pokazywać statków, zamieniamy 'S' na znak wody
+                if (!showShips && cell == board.getShipChar()) {
+                    cell = board.getWaterChar();
+                }
                 String output;
-                if (cell == waterChar) {
+                if (cell == board.getWaterChar()) {
                     output = AnsiColors.BLUE + cell + AnsiColors.RESET;
                 } else if (cell == 'K') {
                     output = AnsiColors.GRAY + cell + AnsiColors.RESET;
-                } else if (cell == shipChar) {
-                    if (showShips) {
-                        output = AnsiColors.GREEN + cell + AnsiColors.RESET;
-                    } else {
-                        // Jeśli statki nie mają być pokazane, zamiast nich pokazujemy wodę.
-                        output = AnsiColors.BLUE + waterChar + AnsiColors.RESET;
-                    }
-                } else if (cell == hitChar) {
+                } else if (cell == board.getShipChar()) {
+                    output = AnsiColors.GREEN + cell + AnsiColors.RESET;
+                } else if (cell == board.getHitChar()) {
                     output = AnsiColors.RED + cell + AnsiColors.RESET;
-                } else if (cell == missChar) {
+                } else if (cell == board.getMissChar()) {
                     output = AnsiColors.YELLOW + cell + AnsiColors.RESET;
                 } else {
-                    output = cell + "";
+                    output = String.valueOf(cell);
                 }
-                System.out.print(output + " ");
+                System.out.print(String.format("%3s", output));
             }
             System.out.println();
         }
-        System.out.println();
     }
 }

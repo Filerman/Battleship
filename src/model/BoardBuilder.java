@@ -4,62 +4,70 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Builder służący do konfigurowania obiektu Board:
- *  - rozmiar planszy
- *  - wygląd znaków (waterChar, shipChar, hitChar, missChar)
- *  - dodawanie kamieni (Stone)
+ * Concrete Builder dla obiektu Board.
  */
-public class BoardBuilder {
-    private int size = 10;         // domyślny rozmiar planszy
-    private char waterChar = '.';  // domyślny znak wody
-    private char shipChar = 'S';   // domyślny znak statku
-    private char hitChar = 'X';    // domyślny znak trafienia
-    private char missChar = 'O';   // domyślny znak pudła
-
-    // Lista kamieni, które chcemy umieścić na planszy
+public class BoardBuilder implements BoardBuilderInterface {
+    private int size = 10;
+    private char waterChar = '.';
+    private char shipChar = 'S';
+    private char hitChar = 'X';
+    private char missChar = 'O';
     private List<Stone> stones = new ArrayList<>();
 
-    // Metoda statyczna do zainicjowania buildera
-    public static BoardBuilder builder() {
+    public static BoardBuilderInterface builder() {
         return new BoardBuilder();
     }
 
-    public BoardBuilder setSize(int size) {
+    @Override
+    public BoardBuilderInterface reset() {
+        this.size = 10;
+        this.waterChar = '.';
+        this.shipChar = 'S';
+        this.hitChar = 'X';
+        this.missChar = 'O';
+        this.stones.clear();
+        return this;
+    }
+
+    @Override
+    public BoardBuilderInterface setSize(int size) {
         this.size = size;
         return this;
     }
 
-    public BoardBuilder setWaterChar(char waterChar) {
+    @Override
+    public BoardBuilderInterface setWaterChar(char waterChar) {
         this.waterChar = waterChar;
         return this;
     }
 
-    public BoardBuilder setShipChar(char shipChar) {
+    @Override
+    public BoardBuilderInterface setShipChar(char shipChar) {
         this.shipChar = shipChar;
         return this;
     }
 
-    public BoardBuilder setHitChar(char hitChar) {
+    @Override
+    public BoardBuilderInterface setHitChar(char hitChar) {
         this.hitChar = hitChar;
         return this;
     }
 
-    public BoardBuilder setMissChar(char missChar) {
+    @Override
+    public BoardBuilderInterface setMissChar(char missChar) {
         this.missChar = missChar;
         return this;
     }
 
-    /**
-     * Dodaje kamień, który zostanie umieszczony na planszy.
-     */
-    public BoardBuilder addStone(Stone stone) {
+    @Override
+    public BoardBuilderInterface addStone(List<Position> positions) {
+        // Tworzymy nowy kamień z podanych pozycji (kamienie są niezniszczalne)
+        Stone stone = new Stone(positions);
         this.stones.add(stone);
         return this;
     }
 
-    /**
-     * Buduje finalny obiekt Board i rozmieszcza w nim kamienie.
-     */
+    @Override
     public Board build() {
         Board board = new Board(size, waterChar, shipChar, hitChar, missChar);
         for (Stone s : stones) {

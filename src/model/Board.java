@@ -52,46 +52,40 @@ public class Board {
     }
 
     /**
-     * Umieszcza statek na planszy (rozmieszczanie statków odbywa się ręcznie).
+     * Umieszcza statek na planszy. Zwraca false, jeśli którakolwiek pozycja, w której ma być umieszczony statek,
+     * znajduje się poza planszą lub już zawiera statek lub kamień (oznaczony jako 'K').
      */
     public boolean placeShip(Ship ship) {
-        // Sprawdzamy kolizje z innymi statkami
         for (Position p : ship.getPositions()) {
             int r = p.getRow();
             int c = p.getCol();
-            if (r < 0 || r >= SIZE || c < 0 || c >= SIZE || grid[r][c] == shipChar) {
+            if (r < 0 || r >= SIZE || c < 0 || c >= SIZE || grid[r][c] == shipChar || grid[r][c] == 'K') {
                 return false;
             }
         }
-        // Jeśli OK, umieszczamy statek
         for (Position p : ship.getPositions()) {
-            int r = p.getRow();
-            int c = p.getCol();
-            grid[r][c] = shipChar;
+            grid[p.getRow()][p.getCol()] = shipChar;
         }
         ships.add(ship);
         return true;
     }
 
     /**
-     * Umieszczanie kamienia (przeszkody) na planszy.
+     * Umieszcza kamień (przeszkodę) na planszy.
+     * Zwraca false, jeśli którakolwiek pozycja jest poza planszą lub już zajęta przez statek lub inny kamień.
      */
     public boolean placeStone(Stone stone) {
         for (Position p : stone.getPositions()) {
             int r = p.getRow();
             int c = p.getCol();
 
-            // Sprawdzamy, czy pozycja mieści się w planszy
             if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) {
                 return false;
             }
-            // Sprawdzamy, czy pole nie jest już zajęte przez statek lub inny kamień ('K')
             if (grid[r][c] == shipChar || grid[r][c] == 'K') {
                 return false;
             }
         }
-
-        // Umieszczamy kamień – oznaczamy pole znakiem 'K'
         for (Position p : stone.getPositions()) {
             grid[p.getRow()][p.getCol()] = 'K';
         }
@@ -100,8 +94,8 @@ public class Board {
     }
 
     /**
-     * Oddanie strzału w daną pozycję.
-     * Zwraca true, jeżeli trafiono w statek; false w przypadku pudła lub trafienia w kamień.
+     * Oddaje strzał w daną pozycję.
+     * Zwraca true, gdy trafiono w statek; false przy pudle lub trafieniu w kamień.
      */
     public boolean shoot(Position position) {
         int r = position.getRow();
@@ -117,15 +111,11 @@ public class Board {
         }
         shotsFired.add(position);
 
-        // Obsługa trafienia w kamień
         if (grid[r][c] == 'K') {
             System.out.println("Trafiłeś w kamień!");
             System.out.println("Kamień jest niezniszczalny!");
             return false;
         }
-
-
-        // Sprawdzamy trafienie w statek
         if (grid[r][c] == shipChar) {
             grid[r][c] = hitChar;
             for (Ship s : ships) {
