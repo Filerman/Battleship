@@ -13,8 +13,4 @@ public class Stone {
     public List<Position> getPositions() {
         return positions;
     }
-
-    public boolean isDestructible() {
-        return destructible;
-    }
 }

@@ -2,7 +2,6 @@ package view;
 
 import model.AIPlayer;
 import model.Board;
-import model.AnsiColors;
 import model.Player;
 
 public class ConsoleView {

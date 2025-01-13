@@ -35,10 +35,6 @@ public class Player {
         return board;
     }
 
-    public DifficultyLevel getDifficultyLevel() {
-        return difficultyLevel;
-    }
-
     public void executeCommand(Command command) {
         command.execute();
         commandHistory.push(command);

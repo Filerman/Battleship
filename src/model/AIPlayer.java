@@ -16,11 +16,6 @@ public class AIPlayer extends Player {
         this.strategy = strategy;
     }
 
-    // Ustawienie nowej strategii w trakcie gry
-    public void setStrategy(AIStrategy strategy) {
-        this.strategy = strategy;
-    }
-
     // Generowanie ruchu w oparciu o strategię (np. do strzału)
     public MoveCommand makeMove() {
         return strategy.executeStrategy(this.getBoard());

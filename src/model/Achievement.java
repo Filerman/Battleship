@@ -35,7 +35,4 @@ public class Achievement {
         return description;
     }
 
-    public boolean rewardsColorChange() {
-        return rewardsColorChange;
-    }
 }
